@@ -1,0 +1,15 @@
+{
+    "name": "Sharing Path",
+    "description": "Files sharing use file store path.",
+    "type": "project",
+    "license": "AGPL",
+    "authors": [
+        {
+            "name": "Rookie0"
+        }
+    ],
+    "require": {},
+    "require-dev": {
+        "phpunit/phpunit": "^5.4"
+    }
+}
