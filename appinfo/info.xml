@@ -14,6 +14,9 @@
     <category>tools</category>
     <website>https://github.com/rookie0/nextcloud-sharing-path</website>
     <bugs>https://github.com/rookie0/nextcloud-sharing-path/issues</bugs>
+    <screenshot>
+        https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png
+    </screenshot>
     <dependencies>
         <nextcloud min-version="15" max-version="15"/>
     </dependencies>
