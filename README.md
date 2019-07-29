@@ -1,52 +1,25 @@
-# Sharing Path
-Place this app in **nextcloud/apps/**
 
-## Building the app
+# Nextcloud Sharing Path
 
-The app can be built by using the provided Makefile by running:
+Nextcloud app to enhance files sharing usage. Now you can share your files by path format.
 
-    make
+eg: `https://youre-domain/nextcloud/apps/sharingpath/path-to-sharing-file`
 
-This requires the following things to be present:
-* make
-* which
-* tar: for building the archive
-* curl: used if phpunit and composer are not installed to fetch them from the web
-* npm: for building and testing everything JS, only required if a package.json is placed inside the **js/** folder
-
-The make command will install or update Composer dependencies if a composer.json is present and also **npm run build** if a package.json is present in the **js/** folder. The npm **build** script should use local paths for build systems and package managers, so people that simply want to build the app won't need to install npm libraries globally, e.g.:
-
-**package.json**:
-```json
-"scripts": {
-    "test": "node node_modules/gulp-cli/bin/gulp.js karma",
-    "prebuild": "npm install && node_modules/bower/bin/bower install && node_modules/bower/bin/bower update",
-    "build": "node node_modules/gulp-cli/bin/gulp.js"
-}
-```
+In this way, you can use your nextcloud as as CDN origin storage.
 
 
-## Publish to App Store
+## Installation
 
-First get an account for the [App Store](http://apps.nextcloud.com/) then run:
+- Install from Nextcloud App Store, navigate in your Nextcloud instance to the `Apps`, in the category `Files` or `Tools` find `Sharing Path` and enable it.
 
-    make && make appstore
+- Install by yourself, download this and put to your Nextcloud instance install path `/your-nextcloud-install-path/apps/`.
 
-The archive is located in build/artifacts/appstore and can then be uploaded to the App Store.
 
-## Running tests
-You can use the provided Makefile to run all tests by using:
+## Screenshots
 
-    make test
+![Nextcloud Sharing Path](https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png)
 
-This will run the PHP unit and integration tests and if a package.json is present in the **js/** folder will execute **npm run test**
 
-Of course you can also install [PHPUnit](http://phpunit.de/getting-started.html) and use the configurations directly:
+## License
 
-    phpunit -c phpunit.xml
-
-or:
-
-    phpunit -c phpunit.integration.xml
-
-for integration tests
+[AGPL](./COPYING)
