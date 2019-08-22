@@ -20,10 +20,4 @@
     <dependencies>
         <nextcloud min-version="15" max-version="16"/>
     </dependencies>
-    <navigations>
-        <navigation>
-            <name>Sharing Path</name>
-            <route>sharingpath.page.index</route>
-        </navigation>
-    </navigations>
 </info>
