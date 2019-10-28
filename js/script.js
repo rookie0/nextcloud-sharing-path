@@ -13,7 +13,7 @@ $(document).ready(function () {
         return;
       }
 
-      var path = OC.getProtocol() + '://' + OC.getHost() + OC.generateUrl('/apps/sharingpath/' + OC.getCurrentUser().uid + context.dir + '/' + filename);
+      var path = OC.getProtocol() + '://' + OC.getHost() + OC.generateUrl('/apps/sharingpath/' + OC.getCurrentUser().uid + (context.dir === '/' ? '' : context.dir) + '/' + filename);
       window.open(path);
     }
   });
