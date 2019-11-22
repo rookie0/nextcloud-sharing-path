@@ -102,11 +102,9 @@ class PathController extends Controller
 
 	/**
 	 * @param string $filename
-	 * @param string $name
 	 * @param array $rangeArray ('from'=>int,'to'=>int), ...
 	 */
-	private static function sendHeaders($filename, $name, array $rangeArray) {
-		//OC_Response::setContentDispositionHeader($name, 'attachment');
+	private static function sendHeaders($filename, array $rangeArray) {
 		header('Content-Transfer-Encoding: binary', true);
 		header('Pragma: public');// enable caching in IE
 		header('Expires: 0');
@@ -135,12 +133,10 @@ class PathController extends Controller
 
 	/**
 	 * @param View $view
-	 * @param string $name
 	 * @param string $dir
 	 * @param array $params ; 'head' boolean to only send header of the request ; 'range' http range header
 	 */
-	private static function getSingleFile($view, $dir, $name, $params) {
-		$filename = $dir . '/' . $name;
+	private static function getSingleFile($view, $filename, $params) {
 		OC_Util::obEnd();
 		$view->lockFile($filename, ILockingProvider::LOCK_SHARED);
 
@@ -151,7 +147,7 @@ class PathController extends Controller
 		}
 
 		if (\OC\Files\Filesystem::isReadable($filename)) {
-			self::sendHeaders($filename, $name, $rangeArray);
+			self::sendHeaders($filename, $rangeArray);
 		} elseif (!\OC\Files\Filesystem::file_exists($filename)) {
 			http_response_code(404);
 			$tmpl = new OC_Template('', '404', 'guest');
@@ -187,73 +183,12 @@ class PathController extends Controller
 				header_remove('Accept-Ranges');
 				header_remove('Content-Range');
 				http_response_code(200);
-				self::sendHeaders($filename, $name, array());
+				self::sendHeaders($filename, array());
 				$view->readfile($filename);
 			}
 		}
 		else {
 			$output = $view->readfile($filename);
-		}
-	}
-
-	/**
-	 * @param string $dir
-	 * @param $files
-	 * @param integer $getType
-	 * @param View $view
-	 * @param string $filename
-	 */
-	private static function unlockAllTheFiles($dir, $files, $getType, $view, $filename) {
-		if ($getType === self::FILE) {
-			$view->unlockFile($filename, ILockingProvider::LOCK_SHARED);
-		}
-		if ($getType === self::ZIP_FILES) {
-			foreach ($files as $file) {
-				$file = $dir . '/' . $file;
-				$view->unlockFile($file, ILockingProvider::LOCK_SHARED);
-			}
-		}
-		if ($getType === self::ZIP_DIR) {
-			$file = $dir . '/' . $files;
-			$view->unlockFile($file, ILockingProvider::LOCK_SHARED);
-		}
-	}
-
-	/**
-	 * return the content of a file or return a zip file containing multiple files
-	 *
-	 * @param string $dir
-	 * @param string $files ; separated list of files to download
-	 * @param array $params ; 'head' boolean to only send header of the request ; 'range' http range header
-	 */
-	public static function get($dir, $files, $params = null) {
-		$view = \OC\Files\Filesystem::getView();
-		$getType = self::FILE;
-		try {
-			$filename = $dir . '/' . $files;
-			if (!$view->is_dir($filename)) {
-				self::getSingleFile($view, $dir, $files, is_null($params) ? array() : $params);
-				return;
-			}
-			set_time_limit($executionTime);
-			self::unlockAllTheFiles($dir, $files, $getType, $view, $filename);
-		} catch (\OCP\Lock\LockedException $ex) {
-			self::unlockAllTheFiles($dir, $files, $getType, $view, $filename);
-			OC::$server->getLogger()->logException($ex);
-			$l = \OC::$server->getL10N('core');
-			$hint = method_exists($ex, 'getHint') ? $ex->getHint() : '';
-			\OC_Template::printErrorPage($l->t('File is currently busy, please try again later'), $hint);
-		} catch (\OCP\Files\ForbiddenException $ex) {
-			self::unlockAllTheFiles($dir, $files, $getType, $view, $filename);
-			OC::$server->getLogger()->logException($ex);
-			$l = \OC::$server->getL10N('core');
-			\OC_Template::printErrorPage($l->t('Can\'t read file'), $ex->getMessage());
-		} catch (\Exception $ex) {
-			self::unlockAllTheFiles($dir, $files, $getType, $view, $filename);
-			OC::$server->getLogger()->logException($ex);
-			$l = \OC::$server->getL10N('core');
-			$hint = method_exists($ex, 'getHint') ? $ex->getHint() : '';
-			\OC_Template::printErrorPage($l->t('Can\'t read file'), $hint);
 		}
 	}
 
@@ -278,6 +213,7 @@ class PathController extends Controller
 		}
 
 		$userFolder = $this->rootFolder->getUserFolder($uid);
+
 		try {
 			$file = $userFolder->get($path);
 
@@ -293,17 +229,9 @@ class PathController extends Controller
 
 			// todo version file handle
 
-			$path = $userFolder->getRelativePath($file->getPath());
-
-			// output file contents without Content-Disposition header
-			//            header('Content-Transfer-Encoding: binary', true);
-			//            header('Pragma: public');
-			//            header('Expires: 0');
-			//            header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+			$filename = $userFolder->getRelativePath($file->getPath());
 
 			\OC_Util::setupFS($uid);
-			$dir = dirname($path);
-			$files = basename($path);
 			$params = array();
 			/**
 			 * Http range requests support
@@ -312,7 +240,38 @@ class PathController extends Controller
 				$params['range'] = \OC::$server->getRequest()->getHeader('Range');
 			}
 
-			self::get($dir, $files, $params);
+			$view = \OC\Files\Filesystem::getView();
+			// create fake root, so that app works for logged in users different than owner of the share
+			$fakeRoot = dirname(dirname(dirname($userFolder->getFullPath($file->getPath()))));
+			$view->chroot($fakeRoot);
+
+			$executionTime = (int)OC::$server->getIniWrapper()->getNumeric('max_execution_time');
+
+			try {
+				if (!\OC\Files\Filesystem::is_dir($filename)) {
+					self::getSingleFile($view, $filename, is_null($params) ? array() : $params);
+					exit;
+				}
+				set_time_limit($executionTime);
+				$view->unlockFile($filename, ILockingProvider::LOCK_SHARED);
+			} catch (\OCP\Lock\LockedException $ex) {
+				$view->unlockFile($filename, ILockingProvider::LOCK_SHARED);
+				OC::$server->getLogger()->logException($ex);
+				$l = \OC::$server->getL10N('core');
+				$hint = method_exists($ex, 'getHint') ? $ex->getHint() : '';
+				\OC_Template::printErrorPage($l->t('File is currently busy, please try again later'), $hint);
+			} catch (\OCP\Files\ForbiddenException $ex) {
+				$view->unlockFile($filename, ILockingProvider::LOCK_SHARED);
+				OC::$server->getLogger()->logException($ex);
+				$l = \OC::$server->getL10N('core');
+				\OC_Template::printErrorPage($l->t('Can\'t read file'), $ex->getMessage());
+			} catch (\Exception $ex) {
+				$view->unlockFile($filename, ILockingProvider::LOCK_SHARED);
+				OC::$server->getLogger()->logException($ex);
+				$l = \OC::$server->getL10N('core');
+				$hint = method_exists($ex, 'getHint') ? $ex->getHint() : '';
+				\OC_Template::printErrorPage($l->t('Can\'t read file'), $hint);
+			}
 			exit;
 		} catch (NotFoundException $e) {
 			http_response_code(404);
@@ -320,3 +279,4 @@ class PathController extends Controller
 		}
 	}
 }
+?>
