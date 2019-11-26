@@ -62,23 +62,17 @@ class PathController extends Controller
             exit;
         }
 
-        $userFolder = $this->rootFolder->getUserFolder($uid);
         try {
-            $file = $userFolder->get($path);
-
-            // check share permission
-            $shares = $this->shareManager->getSharesBy($uid, Share::SHARE_TYPE_LINK, $file);
-            $share  = $shares[0] ?? null;
-            if (! $share ||
-                $share->getPassword() ||
-                ($share->getExpirationDate() && $share->getExpirationDate()->getTimestamp() < time())) {
-                http_response_code(403);
+            $userFolder = $this->rootFolder->getUserFolder($uid);
+            // check file or file dirs is shared
+            if (! $this->isShared($uid, $path)) {
+                http_response_code(404);
                 exit;
             }
 
             // todo version file handle
 
-            $path = $userFolder->getRelativePath($file->getPath());
+            $path = $userFolder->getRelativePath($userFolder->get($path)->getPath());
 
             // output file contents without Content-Disposition header
             header('Content-Transfer-Encoding: binary', true);
@@ -98,6 +92,33 @@ class PathController extends Controller
             http_response_code(404);
             exit;
         }
+    }
+
+    private function isShared($uid, $path)
+    {
+        $segments = explode(DIRECTORY_SEPARATOR, $path);
+        $len      = count($segments);
+        $now      = time();
+        $shared   = false;
+        for ($i = $len; $i > 0; $i--) {
+            $tmpPath  = implode(DIRECTORY_SEPARATOR, array_slice($segments, 0, $i));
+            $userPath = $this->rootFolder->getUserFolder($uid)->get($tmpPath);
+            $shares   = $this->shareManager->getSharesBy($uid, Share::SHARE_TYPE_LINK, $userPath);
+            $share    = $shares[0] ?? null;
+
+            // shared but checked hide download or password protect or expired
+            if ($share && (
+                    $share->getHideDownload() ||
+                    $share->getPassword() || (
+                        $share->getExpirationDate() &&
+                        $share->getExpirationDate()->getTimestamp() < $now))) {
+                return false;
+            } elseif ($share) {
+                $shared = true;
+            }
+        }
+
+        return $shared;
     }
 
 }
