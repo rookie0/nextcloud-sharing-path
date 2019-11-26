@@ -7,9 +7,7 @@ eg: `https://youre-domain/nextcloud/apps/sharingpath/username/shared-file-stored
 
 In this way, you can use your nextcloud as CDN origin storage 🌩.
 
-⚠️ **Attention**
-
-*Potential security risk: links could be guessed.*
+⚠️ **Attention** *Potential security risk: links could be guessed and the files in shared directories can be accessed.*
 
 
 ## Installation
@@ -21,9 +19,9 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 
 ## Usage
 
-Just share your files, then you can access your file by `https://youre-domain/nextcloud/apps/sharingpath/username/shared-file-stored-path`.
+Just share your files or directories, then you can access your file by `https://youre-domain/nextcloud/apps/sharingpath/username/shared-file-stored-path`.
 
-Share your files by share icon or click `Share` from files right click dropdown actions menu, then add a share link without `Hide download` or `Password protect`, then click `Open Sharing Path` from more icon `···` dropdown actions menu, it will open a new tab, and the page url is the direct link you can access. 
+Share your files or directories by share icon or click `Share` from files right click dropdown actions menu, then add a share link without `Hide download` or `Password protect` and not expired if expiration date has set, then click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu, and the copied url is the direct link can be accessed. 
 
 
 
@@ -34,7 +32,7 @@ Share your files by share icon or click `Share` from files right click dropdown 
 
 ## TODO
 
-- [x] Shared file access by stored path
+- [x] Shared files(or at shared directories) can be accessed by stored path
 - [ ] User setting(enable|disable by user, not admin)
 - [ ] Version file access
 - [ ] ...
