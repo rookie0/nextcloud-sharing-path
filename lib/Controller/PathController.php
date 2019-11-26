@@ -32,6 +32,17 @@ class PathController extends Controller
     }
 
     /**
+     * @PublicPage
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function index()
+    {
+        http_response_code(404);
+        exit;
+    }
+
+    /**
      * CAUTION: the @Stuff turns off security checks; for this page no admin is
      *          required and no CSRF check. If you don't know what CSRF is, read
      *          it up in the docs or you might create a security hole. This is
@@ -42,11 +53,11 @@ class PathController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      */
-    public function index($uid, $path)
+    public function handle($uid, $path)
     {
-        // check user exist
+        // check user & path exist
         $user = $this->userManager->get($uid);
-        if (! $user) {
+        if (! $user || ! $path) {
             http_response_code(404);
             exit;
         }
