@@ -8,10 +8,15 @@ $app->registerRoutes(
     [
         'routes' => [
             [
-                'name'         => 'Path#index',
+                'name' => 'Path#index',
+                'url'  => '/',
+                'verb' => 'GET',
+            ],
+            [
+                'name'         => 'Path#handle',
                 'url'          => '/{uid}/{path}',
                 'verb'         => 'GET',
-                'requirements' => ['uid' => '[^\/]+', 'path' => '.+'],
+                'requirements' => ['uid' => '[^\/]+', 'path' => '.*'],
             ],
         ],
     ]
