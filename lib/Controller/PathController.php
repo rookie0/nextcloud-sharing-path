@@ -8,6 +8,7 @@ use OC\Files\Filesystem;
 use OC\Share\Share;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
+use OCP\Files\UnseekableException;
 use OCP\IRequest;
 use OCP\AppFramework\Controller;
 use OCP\IUserManager;
@@ -72,22 +73,53 @@ class PathController extends Controller
 
             // todo version file handle
 
-            $path = $userFolder->getRelativePath($userFolder->get($path)->getPath());
-
-            // output file contents without Content-Disposition header
-            header('Content-Transfer-Encoding: binary', true);
-            header('Pragma: public');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-
             \OC_Util::setupFS($uid);
+            $path     = $userFolder->getRelativePath($userFolder->get($path)->getPath());
             $fileSize = Filesystem::filesize($path);
-            $type     = OC::$server->getMimeTypeDetector()->getSecureMimeType(Filesystem::getMimeType($path));
-            if ($fileSize > -1) {
-                OC_Response::setContentLengthHeader($fileSize);
+
+            $rangeArray = [];
+            if (isset($_SERVER['HTTP_RANGE']) &&
+                substr(OC::$server->getRequest()->getHeader('Range'), 0, 6) === 'bytes=') {
+                $rangeArray = self::parseHttpRangeHeader(substr(OC::$server->getRequest()->getHeader('Range'), 6), $fileSize);
             }
-            header('Content-Type: ' . $type, true);
-            Filesystem::getView()->readfile($path);
+
+            self::sendHeaders($path, $rangeArray);
+
+            if (OC::$server->getRequest()->getMethod() === 'HEAD') {
+                return;
+            }
+
+            $view = Filesystem::getView();
+            if (! empty($rangeArray)) {
+                try {
+                    if (count($rangeArray) == 1) {
+                        $view->readfilePart($path, $rangeArray[0]['from'], $rangeArray[0]['to']);
+                    } else {
+                        // check if file is seekable (if not throw UnseekableException)
+                        // we have to check it before body contents
+                        $view->readfilePart($path, $rangeArray[0]['size'], $rangeArray[0]['size']);
+
+                        $type = OC::$server->getMimeTypeDetector()->getSecureMimeType(Filesystem::getMimeType($path));
+
+                        foreach ($rangeArray as $range) {
+                            echo "\r\n--" . self::getBoundary() . "\r\n" .
+                                "Content-type: " . $type . "\r\n" .
+                                "Content-range: bytes " . $range['from'] . "-" . $range['to'] . "/" . $range['size'] . "\r\n\r\n";
+                            $view->readfilePart($path, $range['from'], $range['to']);
+                        }
+                        echo "\r\n--" . self::getBoundary() . "--\r\n";
+                    }
+                } catch (UnseekableException $ex) {
+                    // file is unseekable
+                    header_remove('Accept-Ranges');
+                    header_remove('Content-Range');
+                    http_response_code(200);
+                    self::sendHeaders($path, array());
+                    $view->readfile($path);
+                }
+            }
+
+            $view->readfile($path);
         } catch (NotFoundException $e) {
             http_response_code(404);
             exit;
@@ -119,6 +151,110 @@ class PathController extends Controller
         }
 
         return $shared;
+    }
+
+    /**
+     * Copy from OC_Files without setContentDispositionHeader
+     * @param string $filename
+     * @param array  $rangeArray ('from'=>int,'to'=>int), ...
+     */
+    private static function sendHeaders($filename, array $rangeArray)
+    {
+        header('Content-Transfer-Encoding: binary', true);
+        header('Pragma: public');// enable caching in IE
+        header('Expires: 0');
+        header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
+        $fileSize = \OC\Files\Filesystem::filesize($filename);
+        $type     = \OC::$server->getMimeTypeDetector()->getSecureMimeType(\OC\Files\Filesystem::getMimeType($filename));
+        if ($fileSize > -1) {
+            if (! empty($rangeArray)) {
+                http_response_code(206);
+                header('Accept-Ranges: bytes', true);
+                if (count($rangeArray) > 1) {
+                    $type = 'multipart/byteranges; boundary=' . self::getBoundary();
+                    // no Content-Length header here
+                } else {
+                    header(sprintf('Content-Range: bytes %d-%d/%d', $rangeArray[0]['from'], $rangeArray[0]['to'], $fileSize), true);
+                    OC_Response::setContentLengthHeader($rangeArray[0]['to'] - $rangeArray[0]['from'] + 1);
+                }
+            } else {
+                OC_Response::setContentLengthHeader($fileSize);
+            }
+        }
+        header('Content-Type: ' . $type, true);
+    }
+
+    /**
+     * Copy from OC_Files
+     * @var string
+     */
+    private static $multipartBoundary = '';
+
+    /**
+     * @return string
+     */
+    private static function getBoundary()
+    {
+        if (empty(self::$multipartBoundary)) {
+            self::$multipartBoundary = md5(mt_rand());
+        }
+        return self::$multipartBoundary;
+    }
+
+    /**
+     * Copy from OC_Files
+     * @param string $rangeHeaderPos
+     * @param int    $fileSize
+     * @return array $rangeArray ('from'=>int,'to'=>int), ...
+     */
+    private static function parseHttpRangeHeader($rangeHeaderPos, $fileSize)
+    {
+        $rArray    = explode(',', $rangeHeaderPos);
+        $minOffset = 0;
+        $ind       = 0;
+
+        $rangeArray = array();
+
+        foreach ($rArray as $value) {
+            $ranges = explode('-', $value);
+            if (is_numeric($ranges[0])) {
+                if ($ranges[0] < $minOffset) { // case: bytes=500-700,601-999
+                    $ranges[0] = $minOffset;
+                }
+                if ($ind > 0 && $rangeArray[$ind - 1]['to'] + 1 == $ranges[0]) { // case: bytes=500-600,601-999
+                    $ind--;
+                    $ranges[0] = $rangeArray[$ind]['from'];
+                }
+            }
+
+            if (is_numeric($ranges[0]) && is_numeric($ranges[1]) && $ranges[0] < $fileSize && $ranges[0] <= $ranges[1]) {
+                // case: x-x
+                if ($ranges[1] >= $fileSize) {
+                    $ranges[1] = $fileSize - 1;
+                }
+                $rangeArray[$ind++] = array('from' => $ranges[0], 'to' => $ranges[1], 'size' => $fileSize);
+                $minOffset          = $ranges[1] + 1;
+                if ($minOffset >= $fileSize) {
+                    break;
+                }
+            } elseif (is_numeric($ranges[0]) && $ranges[0] < $fileSize) {
+                // case: x-
+                $rangeArray[$ind++] = array('from' => $ranges[0], 'to' => $fileSize - 1, 'size' => $fileSize);
+                break;
+            } elseif (is_numeric($ranges[1])) {
+                // case: -x
+                if ($ranges[1] > $fileSize) {
+                    $ranges[1] = $fileSize;
+                }
+                $rangeArray[$ind++] = array(
+                    'from' => $fileSize - $ranges[1],
+                    'to'   => $fileSize - 1,
+                    'size' => $fileSize,
+                );
+                break;
+            }
+        }
+        return $rangeArray;
     }
 
 }
