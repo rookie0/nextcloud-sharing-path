@@ -5,31 +5,41 @@ namespace OCA\SharingPath\Controller;
 use OC;
 use OC_Response;
 use OC\Files\Filesystem;
-use OC\Share\Share;
+use OCA\SharingPath\AppInfo\Application;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\Files\UnseekableException;
+use OCP\IConfig;
+use OCP\ILogger;
 use OCP\IRequest;
 use OCP\AppFramework\Controller;
 use OCP\IUserManager;
 use OCP\Share\IManager;
+use OCP\Share\IShare;
 
 class PathController extends Controller
 {
+    private $config;
     private $userManager;
     private $shareManager;
     private $rootFolder;
+    private $logger;
 
-    public function __construct($AppName,
+    public function __construct($appName,
                                 IRequest $request,
+                                IConfig $config,
                                 IUserManager $userManager,
                                 IManager $shareManager,
-                                IRootFolder $rootFolder)
+                                IRootFolder $rootFolder,
+                                ILogger $logger)
     {
-        parent::__construct($AppName, $request);
+        parent::__construct($appName, $request);
+
+        $this->config       = $config;
         $this->userManager  = $userManager;
         $this->shareManager = $shareManager;
         $this->rootFolder   = $rootFolder;
+        $this->logger       = $logger;
     }
 
     /**
@@ -60,6 +70,12 @@ class PathController extends Controller
         $user = $this->userManager->get($uid);
         if (! $user || ! $path) {
             http_response_code(404);
+            exit;
+        }
+
+        // check use is enabled sharing path
+        if ($this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE, 'yes') !== 'yes') {
+            http_response_code(403);
             exit;
         }
 
@@ -122,6 +138,11 @@ class PathController extends Controller
             $view->readfile($path);
         } catch (NotFoundException $e) {
             http_response_code(404);
+            $this->logger->warning("request user {$uid} file {$path} not found.");
+            exit;
+        } catch (\Exception $e) {
+            http_response_code(500);
+            $this->logger->error("request user {$uid} file {$path} failed: " . $e->getMessage(), ['extra_context' => $e->getTrace()]);
             exit;
         }
     }
@@ -135,7 +156,7 @@ class PathController extends Controller
         for ($i = $len; $i > 0; $i--) {
             $tmpPath  = implode(DIRECTORY_SEPARATOR, array_slice($segments, 0, $i));
             $userPath = $this->rootFolder->getUserFolder($uid)->get($tmpPath);
-            $shares   = $this->shareManager->getSharesBy($uid, Share::SHARE_TYPE_LINK, $userPath);
+            $shares   = $this->shareManager->getSharesBy($uid, IShare::TYPE_LINK, $userPath);
             $share    = $shares[0] ?? null;
 
             // shared but checked hide download or password protect or expired
