@@ -3,11 +3,11 @@
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>sharingpath</id>
     <name>Sharing Path</name>
-    <summary>Files sharing use files stored path.</summary>
+    <summary>Files sharing use stored path. Easy share, multi-use.</summary>
     <description>
         <![CDATA[Files sharing use file stored path. Now you cau use nextcloud as your CDN origin.
         What you need to do is just share your files, then click Open Sharing Path to access from files dropdown actions menu. ]]></description>
-    <version>0.1.2</version>
+    <version>0.2.0</version>
     <licence>agpl</licence>
     <author mail="j4fdot@qq.com">Rookie0</author>
     <namespace>SharingPath</namespace>
@@ -21,4 +21,8 @@
     <dependencies>
         <nextcloud min-version="15" max-version="18"/>
     </dependencies>
+
+    <settings>
+        <personal>OCA\SharingPath\Settings\Personal</personal>
+    </settings>
 </info>

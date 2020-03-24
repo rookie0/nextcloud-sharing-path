@@ -9,9 +9,13 @@ use OCP\IContainer;
 class Application extends App
 {
 
+    const APP_ID = 'sharingpath';
+
+    const SETTINGS_KEY_ENABLE = 'enabled';
+
     public function __construct(array $urlParams = [])
     {
-        parent::__construct('sharingpath', $urlParams);
+        parent::__construct(self::APP_ID, $urlParams);
 
         $container = $this->getContainer();
         $server    = $container->getServer();
@@ -20,9 +24,11 @@ class Application extends App
             return new PathController(
                 $c->query('AppName'),
                 $c->query('Request'),
+                $server->getConfig(),
                 $server->getUserManager(),
                 $server->getShareManager(),
-                $server->getRootFolder()
+                $server->getRootFolder(),
+                $server->getLogger()
             );
         });
     }

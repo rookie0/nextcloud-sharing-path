@@ -1,9 +1,11 @@
 
-# Nextcloud Sharing Path
+# Nextcloud Sharing Path  [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F1F51I62J)
 
-Nextcloud app to enhance files sharing usage. Now you can share your files by path format.
+Nextcloud app to enhance files sharing usage. Easy share, multi-use.
 
-eg: `https://youre-domain/nextcloud/apps/sharingpath/username/shared-file-stored-path`
+Now you can share your files by path format like below:
+
+`https://youre-domain/nextcloud/apps/sharingpath/username/shared-file-stored-path`
 
 In this way, you can use your nextcloud as CDN origin storage 🌩.
 
@@ -19,21 +21,20 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 
 ## Usage
 
-Just share your files or directories, then you can access your file by `https://youre-domain/nextcloud/apps/sharingpath/username/shared-file-stored-path`.
+Just share your files or directories(add a share link without `Hide download` or `Password protect` and not expired if expiration date has set), then you can get the url by click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu. 
 
-Share your files or directories by share icon or click `Share` from files right click dropdown actions menu, then add a share link without `Hide download` or `Password protect` and not expired if expiration date has set, then click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu, and the copied url is the direct link can be accessed. 
-
+And your can disable by uncheck `Enable sharing path` at `Settings` - `Personal` > `Sharing` - `Sharing Path`.
 
 
 ## Screenshots
 
-![Nextcloud Sharing Path](https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png)
+<p align="center"><img src="https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png" alt="Nextcloud Sharing Path" width="500"></p>
 
 
 ## TODO
 
 - [x] Shared files(or at shared directories) can be accessed by stored path
-- [ ] User setting(enable|disable by user, not admin)
+- [x] User setting(enable|disable by user, not admin)
 - [ ] Version file access
 - [ ] ...
 
