@@ -135,14 +135,19 @@ class PathController extends Controller
                 }
             }
 
+            // FIXME: The exit is required here because otherwise the AppFramework is trying to add headers as well
             $view->readfile($path);
+            exit;
         } catch (NotFoundException $e) {
             http_response_code(404);
-            $this->logger->warning("request user {$uid} file {$path} not found.");
+            $this->logger->warning("request user {$uid} file {$path} not found.", ['app' => Application::APP_ID]);
             exit;
         } catch (\Exception $e) {
             http_response_code(500);
-            $this->logger->error("request user {$uid} file {$path} failed: " . $e->getMessage(), ['extra_context' => $e->getTrace()]);
+            $this->logger->error("request user {$uid} file {$path} failed: " . $e->getMessage(), [
+                'app'           => Application::APP_ID,
+                'extra_context' => $e->getTrace(),
+            ]);
             exit;
         }
     }
