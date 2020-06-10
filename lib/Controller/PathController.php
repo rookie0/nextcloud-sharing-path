@@ -46,6 +46,7 @@ class PathController extends Controller
      * @PublicPage
      * @NoAdminRequired
      * @NoCSRFRequired
+     * @NoSameSiteCookieRequired
      */
     public function index()
     {
@@ -63,6 +64,7 @@ class PathController extends Controller
      * @PublicPage
      * @NoAdminRequired
      * @NoCSRFRequired
+     * @NoSameSiteCookieRequired
      */
     public function handle($uid, $path)
     {
@@ -159,10 +161,11 @@ class PathController extends Controller
         $now      = time();
         $shared   = false;
         for ($i = $len; $i > 0; $i--) {
-            $tmpPath  = implode(DIRECTORY_SEPARATOR, array_slice($segments, 0, $i));
-            $userPath = $this->rootFolder->getUserFolder($uid)->get($tmpPath);
-            $shares   = $this->shareManager->getSharesBy($uid, IShare::TYPE_LINK, $userPath);
-            $share    = $shares[0] ?? null;
+            $tmpPath   = implode(DIRECTORY_SEPARATOR, array_slice($segments, 0, $i));
+            $userPath  = $this->rootFolder->getUserFolder($uid)->get($tmpPath);
+            $shareType = version_compare(\OC_Util::getVersionString(), '17.0.0', '>=') ? IShare::TYPE_LINK : OC\Share\Constants::SHARE_TYPE_LINK;
+            $shares    = $this->shareManager->getSharesBy($uid, $shareType, $userPath);
+            $share     = $shares[0] ?? null;
 
             // shared but checked hide download or password protect or expired
             if ($share && (
