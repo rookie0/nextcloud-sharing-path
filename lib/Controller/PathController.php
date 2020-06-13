@@ -104,7 +104,7 @@ class PathController extends Controller
             self::sendHeaders($path, $rangeArray);
 
             if (OC::$server->getRequest()->getMethod() === 'HEAD') {
-                return;
+                exit;
             }
 
             $view = Filesystem::getView();
@@ -135,10 +135,11 @@ class PathController extends Controller
                     self::sendHeaders($path, array());
                     $view->readfile($path);
                 }
+            } else {
+                $view->readfile($path);
             }
 
             // FIXME: The exit is required here because otherwise the AppFramework is trying to add headers as well
-            $view->readfile($path);
             exit;
         } catch (NotFoundException $e) {
             http_response_code(404);
