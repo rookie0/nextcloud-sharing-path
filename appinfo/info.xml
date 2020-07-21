@@ -7,7 +7,7 @@
     <description>
         <![CDATA[Files sharing use file stored path. Now you cau use nextcloud as your CDN origin.
         What you need to do is just share your files, then click Open Sharing Path to access from files dropdown actions menu. ]]></description>
-    <version>0.2.4</version>
+    <version>0.2.5</version>
     <licence>agpl</licence>
     <author mail="j4fdot@qq.com">Rookie0</author>
     <namespace>SharingPath</namespace>

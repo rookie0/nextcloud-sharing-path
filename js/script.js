@@ -14,8 +14,8 @@ $(document).ready(function () {
       //     return;
       // }
 
-      let path = OC.getProtocol() + '://' + OC.getHost() + OC.generateUrl('/apps/sharingpath/' +
-        OC.getCurrentUser().uid + (context.dir === '/' ? '' : context.dir) + '/' + filename);
+      let path = encodeURI(OC.getProtocol() + '://' + OC.getHost() + OC.generateUrl('/apps/sharingpath/' +
+        OC.getCurrentUser().uid + (context.dir === '/' ? '' : context.dir) + '/' + filename));
 
       let dummyPath = document.createElement('textarea');
       dummyPath.value = path;
