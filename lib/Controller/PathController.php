@@ -2,20 +2,20 @@
 
 namespace OCA\SharingPath\Controller;
 
-use OC;
-use OC_Response;
 use OC\Files\Filesystem;
+use OC_Response;
 use OCA\SharingPath\AppInfo\Application;
+use OCP\AppFramework\Controller;
+use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\Files\UnseekableException;
 use OCP\IConfig;
-use OCP\ILogger;
 use OCP\IRequest;
-use OCP\AppFramework\Controller;
 use OCP\IUserManager;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
+use Psr\Log\LoggerInterface;
 
 class PathController extends Controller
 {
@@ -24,6 +24,7 @@ class PathController extends Controller
     private $shareManager;
     private $rootFolder;
     private $logger;
+    private $mimeTypeDetector;
 
     public function __construct($appName,
                                 IRequest $request,
@@ -31,15 +32,17 @@ class PathController extends Controller
                                 IUserManager $userManager,
                                 IManager $shareManager,
                                 IRootFolder $rootFolder,
-                                ILogger $logger)
+                                LoggerInterface $logger,
+                                IMimeTypeDetector $mimeTypeDetector)
     {
         parent::__construct($appName, $request);
 
-        $this->config       = $config;
-        $this->userManager  = $userManager;
+        $this->config = $config;
+        $this->userManager = $userManager;
         $this->shareManager = $shareManager;
-        $this->rootFolder   = $rootFolder;
-        $this->logger       = $logger;
+        $this->rootFolder = $rootFolder;
+        $this->logger = $logger;
+        $this->mimeTypeDetector = $mimeTypeDetector;
     }
 
     /**
@@ -76,7 +79,7 @@ class PathController extends Controller
         }
 
         // check use is enabled sharing path
-        if ($this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE, 'yes') !== 'yes') {
+        if ($this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE) !== 'yes') {
             http_response_code(403);
             exit;
         }
@@ -92,18 +95,18 @@ class PathController extends Controller
             // todo version file handle
 
             \OC_Util::setupFS($uid);
-            $path     = $userFolder->getRelativePath($userFolder->get($path)->getPath());
+            $path = $userFolder->getRelativePath($userFolder->get($path)->getPath());
             $fileSize = Filesystem::filesize($path);
 
             $rangeArray = [];
             if (isset($_SERVER['HTTP_RANGE']) &&
-                substr(OC::$server->getRequest()->getHeader('Range'), 0, 6) === 'bytes=') {
-                $rangeArray = self::parseHttpRangeHeader(substr(OC::$server->getRequest()->getHeader('Range'), 6), $fileSize);
+                substr($this->request->getHeader('Range'), 0, 6) === 'bytes=') {
+                $rangeArray = self::parseHttpRangeHeader(substr($this->request->getHeader('Range'), 6), $fileSize);
             }
 
-            self::sendHeaders($path, $rangeArray);
+            $this->sendHeaders($path, $rangeArray);
 
-            if (OC::$server->getRequest()->getMethod() === 'HEAD') {
+            if ($this->request->getMethod() === 'HEAD') {
                 exit;
             }
 
@@ -117,7 +120,7 @@ class PathController extends Controller
                         // we have to check it before body contents
                         $view->readfilePart($path, $rangeArray[0]['size'], $rangeArray[0]['size']);
 
-                        $type = OC::$server->getMimeTypeDetector()->getSecureMimeType(Filesystem::getMimeType($path));
+                        $type = $this->mimeTypeDetector->getSecureMimeType(Filesystem::getMimeType($path));
 
                         foreach ($rangeArray as $range) {
                             echo "\r\n--" . self::getBoundary() . "\r\n" .
@@ -132,7 +135,7 @@ class PathController extends Controller
                     header_remove('Accept-Ranges');
                     header_remove('Content-Range');
                     http_response_code(200);
-                    self::sendHeaders($path, array());
+                    $this->sendHeaders($path, array());
                     $view->readfile($path);
                 }
             } else {
@@ -158,15 +161,14 @@ class PathController extends Controller
     private function isShared($uid, $path)
     {
         $segments = explode(DIRECTORY_SEPARATOR, $path);
-        $len      = count($segments);
-        $now      = time();
-        $shared   = false;
+        $len = count($segments);
+        $now = time();
+        $shared = false;
         for ($i = $len; $i > 0; $i--) {
-            $tmpPath   = implode(DIRECTORY_SEPARATOR, array_slice($segments, 0, $i));
-            $userPath  = $this->rootFolder->getUserFolder($uid)->get($tmpPath);
-            $shareType = version_compare(\OC_Util::getVersionString(), '17.0.0', '>=') ? IShare::TYPE_LINK : OC\Share\Constants::SHARE_TYPE_LINK;
-            $shares    = $this->shareManager->getSharesBy($uid, $shareType, $userPath);
-            $share     = $shares[0] ?? null;
+            $tmpPath = implode(DIRECTORY_SEPARATOR, array_slice($segments, 0, $i));
+            $userPath = $this->rootFolder->getUserFolder($uid)->get($tmpPath);
+            $shares = $this->shareManager->getSharesBy($uid, IShare::TYPE_LINK, $userPath);
+            $share = $shares[0] ?? null;
 
             // shared but checked hide download or password protect or expired
             if ($share && (
@@ -188,14 +190,14 @@ class PathController extends Controller
      * @param string $filename
      * @param array  $rangeArray ('from'=>int,'to'=>int), ...
      */
-    private static function sendHeaders($filename, array $rangeArray)
+    private function sendHeaders($filename, array $rangeArray)
     {
         header('Content-Transfer-Encoding: binary', true);
         header('Pragma: public');// enable caching in IE
         header('Expires: 0');
         header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-        $fileSize = \OC\Files\Filesystem::filesize($filename);
-        $type     = \OC::$server->getMimeTypeDetector()->getSecureMimeType(\OC\Files\Filesystem::getMimeType($filename));
+        $fileSize = Filesystem::filesize($filename);
+        $type = $this->mimeTypeDetector->getSecureMimeType(Filesystem::getMimeType($filename));
         if ($fileSize > -1) {
             if (! empty($rangeArray)) {
                 http_response_code(206);
@@ -239,9 +241,9 @@ class PathController extends Controller
      */
     private static function parseHttpRangeHeader($rangeHeaderPos, $fileSize)
     {
-        $rArray    = explode(',', $rangeHeaderPos);
+        $rArray = explode(',', $rangeHeaderPos);
         $minOffset = 0;
-        $ind       = 0;
+        $ind = 0;
 
         $rangeArray = array();
 
@@ -263,7 +265,7 @@ class PathController extends Controller
                     $ranges[1] = $fileSize - 1;
                 }
                 $rangeArray[$ind++] = array('from' => $ranges[0], 'to' => $ranges[1], 'size' => $fileSize);
-                $minOffset          = $ranges[1] + 1;
+                $minOffset = $ranges[1] + 1;
                 if ($minOffset >= $fileSize) {
                     break;
                 }

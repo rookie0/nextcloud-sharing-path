@@ -1,0 +1,51 @@
+
+# Change logs
+
+
+## 0.3.0 - 2020-11-12
+
+- 20 compatibility
+- Change default enable status to disable [#26](https://github.com/rookie0/nextcloud-sharing-path/issues/26), now you must goto `Settings > Personal > Sharing > Sharing Path` check this before you can use
+
+
+## 0.2.5 - 2020-07-21 
+ 
+- Fix url format [#24](https://github.com/rookie0/nextcloud-sharing-path/issues/24)
+
+
+## 0.2.4 - 2020-06-13
+
+- Fix response headers by exit [#17](https://github.com/rookie0/nextcloud-sharing-path/issues/17)
+
+
+## 0.2.3 - 2020-06-10
+
+- Fix [#22](https://github.com/rookie0/nextcloud-sharing-path/issues/22) [#20](https://github.com/rookie0/nextcloud-sharing-path/issues/20)
+
+
+## 0.2.2 - 2020-04-27
+
+- Change do not check file is shared [#14](https://github.com/rookie0/nextcloud-sharing-path/issues/22) [#20](https://github.com/rookie0/nextcloud-sharing-path/issues/14)
+
+
+## 0.2.1 - 2020-04-19
+
+- Fix readfile with exit
+- Add user settings
+
+
+## 0.1.2 - 2020-03-17
+
+- Add http range support [#5](https://github.com/rookie0/nextcloud-sharing-path/issues/22) [#20](https://github.com/rookie0/nextcloud-sharing-path/issues/5)
+- 18 compatibility
+
+
+## 0.0.3 - 2019-11-14
+
+- Update copy sharing path [#5](https://github.com/rookie0/nextcloud-sharing-path/issues/22) [#20](https://github.com/rookie0/nextcloud-sharing-path/issues/5)
+- Update readme
+- 17 compatibility
+
+## 0.0.1 - 2019-07-29
+
+- First release
