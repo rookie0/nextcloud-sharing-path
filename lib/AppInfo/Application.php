@@ -4,9 +4,20 @@ namespace OCA\SharingPath\AppInfo;
 
 use OCA\SharingPath\Controller\PathController;
 use OCP\AppFramework\App;
-use OCP\IContainer;
+use OCP\AppFramework\Bootstrap\IBootContext;
+use OCP\AppFramework\Bootstrap\IBootstrap;
+use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCP\EventDispatcher\IEventDispatcher;
+use OCP\Files\IMimeTypeDetector;
+use OCP\Files\IRootFolder;
+use OCP\IConfig;
+use OCP\IRequest;
+use OCP\IUserManager;
+use OCP\Share\IManager as IShareManager;
+use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 
-class Application extends App
+class Application extends App implements IBootstrap
 {
 
     const APP_ID = 'sharingpath';
@@ -17,19 +28,28 @@ class Application extends App
     {
         parent::__construct(self::APP_ID, $urlParams);
 
-        $container = $this->getContainer();
-        $server    = $container->getServer();
+    }
 
-        $container->registerService('PathController', function (IContainer $c) use ($server) {
+    public function register(IRegistrationContext $context): void
+    {
+        $context->registerService('PathController', function (ContainerInterface $c) {
             return new PathController(
-                $c->query('AppName'),
-                $c->query('Request'),
-                $server->getConfig(),
-                $server->getUserManager(),
-                $server->getShareManager(),
-                $server->getRootFolder(),
-                $server->getLogger()
+                $c->get('AppName'),
+                $c->get(IRequest::class),
+                $c->get(IConfig::class),
+                $c->get(IUserManager::class),
+                $c->get(IShareManager::class),
+                $c->get(IRootFolder::class),
+                $c->get(LoggerInterface::class),
+                $c->get(IMimeTypeDetector::class)
             );
+        });
+    }
+
+    public function boot(IBootContext $context): void
+    {
+        $this->getContainer()->get(IEventDispatcher::class)->addListener('OCA\Files::loadAdditionalScripts', function () {
+            script(self::APP_ID, 'script');
         });
     }
 

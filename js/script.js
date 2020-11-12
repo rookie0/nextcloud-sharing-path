@@ -1,13 +1,13 @@
-$(document).ready(function () {
+window.addEventListener('DOMContentLoaded', function(event) {
   OCA.Files.fileActions.registerAction({
     name: 'copy-sharing-path',
-    displayName: ['zh-CN', 'zh-HK', 'zh-TW', 'ja', 'ko'].includes(OC.getLanguage()) ?
+    displayName: [ 'zh-CN', 'zh-HK', 'zh-TW', 'ja', 'ko' ].includes(OC.getLanguage()) ?
       (t('files', 'Copy') + t('files_sharing', 'Sharing') + t('files', 'Path')) :
       (t('files', 'Copy') + ' ' + t('files_sharing', 'Sharing') + ' ' + t('files', 'Path')),
     mime: 'file',
     permissions: OC.PERMISSION_READ,
     iconClass: 'icon-public',
-    actionHandler: function (filename, context) {
+    actionHandler: function(filename, context) {
       // Do not check file or parent folder is shared
       // if (context.fileInfoModel.attributes.shareTypes.indexOf(OC.Share.SHARE_TYPE_LINK) < 0) {
       //     OC.dialogs.info(t('files_sharing', 'No shared links'), t('gallery', 'Warning'));
@@ -35,6 +35,6 @@ $(document).ready(function () {
         document.getSelection().removeAllRanges();    // Unselect everything on the HTML document
         document.getSelection().addRange(selected);   // Restore the original selection
       }
-    }
+    },
   });
 });

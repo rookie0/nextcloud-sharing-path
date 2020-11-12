@@ -23,7 +23,7 @@ class Personal implements ISettings
     public function getForm()
     {
         $uid     = \OC_User::getUser();
-        $enabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE, 'yes');
+        $enabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
 
         return new TemplateResponse(Application::APP_ID, 'settings/personal', [
             'enabled' => $enabled,
