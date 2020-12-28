@@ -2,6 +2,13 @@
 # Change logs
 
 
+## 0.4.0(nightly) - 2020-12-28
+
+- Add sharing folder setting [#16](https://github.com/rookie0/nextcloud-sharing-path/issues/16), ❗⚠️❗️️all files in this folder can be accessed without share first
+- Add copy prefix setting [#28](https://github.com/rookie0/nextcloud-sharing-path/issues/28)
+- Add admin default setting, ❗⚠️❗personal setting will extend the default settings if you do not set or leave it blank
+
+
 ## 0.3.0 - 2020-11-12
 
 - 20 compatibility

@@ -79,15 +79,22 @@ class PathController extends Controller
         }
 
         // check use is enabled sharing path
-        if ($this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE) !== 'yes') {
+        $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
+        $userEnabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
+        if ($userEnabled !== 'yes' || (! $userEnabled && $enabled === 'no')) {
             http_response_code(403);
             exit;
         }
 
         try {
             $userFolder = $this->rootFolder->getUserFolder($uid);
-            // check file or file dirs is shared
-            if (! $this->isShared($uid, $path)) {
+            $sharingFolder = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_SHARING_FOLDER);
+            $userSharingFolder = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_SHARING_FOLDER);
+
+            $sharingFolder = $userSharingFolder ?: $sharingFolder;
+            $isPublic = $sharingFolder && str_starts_with(trim($path, '/') . '/', trim($sharingFolder, '/') . '/');
+            // check file is under sharing folder or is shared
+            if (! $isPublic && ! $this->isShared($uid, $path)) {
                 http_response_code(404);
                 exit;
             }

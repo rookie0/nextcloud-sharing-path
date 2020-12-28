@@ -22,7 +22,12 @@ class Application extends App implements IBootstrap
 
     const APP_ID = 'sharingpath';
 
-    const SETTINGS_KEY_ENABLE = 'enabled';
+    const SETTINGS_KEY_DEFAULT_ENABLE         = 'default_enabled';
+    const SETTINGS_KEY_ENABLE                 = 'enabled';
+    const SETTINGS_KEY_DEFAULT_COPY_PREFIX    = 'default_copy_prefix';
+    const SETTINGS_KEY_COPY_PREFIX            = 'copy_prefix';
+    const SETTINGS_KEY_DEFAULT_SHARING_FOLDER = 'default_sharing_folder';
+    const SETTINGS_KEY_SHARING_FOLDER         = 'sharing_folder';
 
     public function __construct(array $urlParams = [])
     {
