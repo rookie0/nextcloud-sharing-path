@@ -8,8 +8,23 @@ return [
             'verb' => 'GET',
         ],
         [
+            'name' => 'Settings#index',
+            'url'  => '/settings',
+            'verb' => 'GET',
+        ],
+        [
             'name' => 'Settings#enable',
             'url'  => '/settings/enable',
+            'verb' => 'PUT',
+        ],
+        [
+            'name' => 'Settings#setCopyPrefix',
+            'url'  => '/settings/copyprefix',
+            'verb' => 'PUT',
+        ],
+        [
+            'name' => 'Settings#setSharingFolder',
+            'url'  => '/settings/sharingfolder',
             'verb' => 'PUT',
         ],
         [

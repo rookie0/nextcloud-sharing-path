@@ -23,20 +23,19 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 
 Just share your files or directories(add a share link without `Hide download` or `Password protect` and not expired if expiration date has set), then you can get the url by click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu. 
 
-And your can disable by uncheck `Enable sharing path` at `Settings` - `Personal` > `Sharing` - `Sharing Path`.
+There are some settings in `Settings` > `Sharing`(Administration & Personal) > `Sharing Path` you may need take a look.
 
 
 ## Screenshots
 
-<p align="center"><img src="https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png" alt="Nextcloud Sharing Path" width="500"></p>
+<p align="center"><img src="https://user-images.githubusercontent.com/5813232/103185230-6e066680-48f6-11eb-852a-b51002e6adba.png" alt="Nextcloud Sharing Path" width="500"></p>
+<p align="center"><img src="https://user-images.githubusercontent.com/5813232/103185234-7363b100-48f6-11eb-8c67-cb9a587bd45a.png" alt="Nextcloud Sharing Path" width="500"></p>
+<p align="center"><img src="https://user-images.githubusercontent.com/5813232/103185973-b5dabd00-48f9-11eb-8e95-7ebaf0a50937.png" alt="Nextcloud Sharing Path" width="500"></p>
 
 
-## TODO
+## Changelog
 
-- [x] Shared files(or at shared directories) can be accessed by stored path
-- [x] User setting(enable|disable by user, not admin)
-- [ ] Version file access
-- [ ] ...
+See [CHANGELOG](CHANGELOG.md)
 
 
 ## License
