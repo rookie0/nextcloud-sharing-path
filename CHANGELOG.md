@@ -2,7 +2,7 @@
 # Change logs
 
 
-## 0.4.1(nightly) - 2020-12-28
+## 0.4.1(nightly) - 2021-04-28
 
 - Fix new user share access got 403 by default settings [#33](https://github.com/rookie0/nextcloud-sharing-path/issues/33)
 
