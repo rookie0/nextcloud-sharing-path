@@ -23,7 +23,7 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 
 Just share your files or directories(add a share link without `Hide download` or `Password protect` and not expired if expiration date has set), then you can get the url by click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu. 
 
-There are some settings in `Settings` > `Sharing`(Administration & Personal) > `Sharing Path` you may need take a look.
+There are some settings in `Settings` > `Sharing` (**Personal**) > `Sharing Path`.  You may need to "Enable sharing path".  See screenshot below.
 
 
 ## Screenshots
