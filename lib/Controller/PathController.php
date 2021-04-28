@@ -81,7 +81,7 @@ class PathController extends Controller
         // check use is enabled sharing path
         $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
         $userEnabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
-        if ($userEnabled !== 'yes' || (! $userEnabled && $enabled === 'no')) {
+        if ($userEnabled === 'no' || (! $userEnabled && $enabled === 'no')) {
             http_response_code(403);
             exit;
         }

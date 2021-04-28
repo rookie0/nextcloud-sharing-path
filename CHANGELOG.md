@@ -2,6 +2,11 @@
 # Change logs
 
 
+## 0.4.1(nightly) - 2020-12-28
+
+- Fix new user share access got 403 by default settings [#33](https://github.com/rookie0/nextcloud-sharing-path/issues/33)
+
+
 ## 0.4.0(nightly) - 2020-12-28
 
 - Add sharing folder setting [#16](https://github.com/rookie0/nextcloud-sharing-path/issues/16), ❗⚠️❗️️all files in this folder can be accessed without share first
