@@ -13,6 +13,7 @@ use OCP\Files\UnseekableException;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
@@ -25,6 +26,7 @@ class PathController extends Controller
     private $rootFolder;
     private $logger;
     private $mimeTypeDetector;
+    private $userSession;
 
     public function __construct($appName,
                                 IRequest $request,
@@ -33,7 +35,8 @@ class PathController extends Controller
                                 IManager $shareManager,
                                 IRootFolder $rootFolder,
                                 LoggerInterface $logger,
-                                IMimeTypeDetector $mimeTypeDetector)
+                                IMimeTypeDetector $mimeTypeDetector,
+                                IUserSession $userSession)
     {
         parent::__construct($appName, $request);
 
@@ -43,6 +46,7 @@ class PathController extends Controller
         $this->rootFolder = $rootFolder;
         $this->logger = $logger;
         $this->mimeTypeDetector = $mimeTypeDetector;
+        $this->userSession = $userSession;
     }
 
     /**
@@ -81,7 +85,7 @@ class PathController extends Controller
         // check use is enabled sharing path
         $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
         $userEnabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
-        if ($userEnabled === 'no' || (! $userEnabled && $enabled === 'no')) {
+        if ($userEnabled === 'no' || (! $userEnabled && $enabled !== 'yes')) {
             http_response_code(403);
             exit;
         }
@@ -101,6 +105,11 @@ class PathController extends Controller
 
             // todo version file handle
 
+            // if user is logged in, need reset filesystem
+            $loggedByOther = $this->userSession->isLoggedIn() && $this->userSession->getUser()->getUID() !== $uid;
+            if ($loggedByOther) {
+                \OC_Util::tearDownFS();
+            }
             \OC_Util::setupFS($uid);
             $path = $userFolder->getRelativePath($userFolder->get($path)->getPath());
             $fileSize = Filesystem::filesize($path);
