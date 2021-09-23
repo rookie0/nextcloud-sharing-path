@@ -13,6 +13,7 @@ use OCP\Files\IRootFolder;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\Share\IManager as IShareManager;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -46,7 +47,8 @@ class Application extends App implements IBootstrap
                 $c->get(IShareManager::class),
                 $c->get(IRootFolder::class),
                 $c->get(LoggerInterface::class),
-                $c->get(IMimeTypeDetector::class)
+                $c->get(IMimeTypeDetector::class),
+                $c->get(IUserSession::class)
             );
         });
     }

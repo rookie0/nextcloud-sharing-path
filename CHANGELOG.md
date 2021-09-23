@@ -2,6 +2,12 @@
 # Change logs
 
 
+## 0.4.3 - 2021-09-23
+
+- Fix logged in user request error [#23](https://github.com/rookie0/nextcloud-sharing-path/issues/23), [#31](https://github.com/rookie0/nextcloud-sharing-path/issues/31)
+- Change user default enable setting behavior, now you must explicitly enable sharing path at `Setting` > `Sharing` first, then you can use this app to access your sharing files
+
+
 ## 0.4.1(nightly) - 2021-04-28
 
 - Fix new user share access got 403 by default settings [#33](https://github.com/rookie0/nextcloud-sharing-path/issues/33)

@@ -16,12 +16,14 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 
 - Install from [Nextcloud App Store](https://apps.nextcloud.com/apps/sharingpath), navigate in your Nextcloud instance to the `Apps`, in the category `Files` or `Tools` find `Sharing Path` and enable it.
 
-- Install by yourself, download this and put to your Nextcloud instance install path `/your-nextcloud-install-path/apps/`.
+- Install by yourself, download this and put to your Nextcloud instance install path `/your-nextcloud-install-path/apps/`, then `Enable` it at `Apps` > `Your apps`.
 
 
 ## Usage
 
-Just share your files or directories(add a share link without `Hide download` or `Password protect` and not expired if expiration date has set), then you can get the url by click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu. 
+Check `Enable sharing path` at `Setting` > `Sharing` first.
+
+Then just share your files or directories(add a share link without `Hide download` or `Password protect` and not expired if expiration date has set), then you can get the url by click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu. 
 
 There are some settings in `Settings` > `Sharing`(Administration & Personal) > `Sharing Path` you may need take a look.
 
