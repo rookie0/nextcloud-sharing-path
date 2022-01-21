@@ -57,6 +57,7 @@ class PathController extends Controller
      */
     public function index()
     {
+        $this->logger->warning("request index not allowed", ['app' => Application::APP_ID]);
         http_response_code(404);
         exit;
     }
@@ -75,9 +76,11 @@ class PathController extends Controller
      */
     public function handle($uid, $path)
     {
+        $this->logger->warning("user: ${uid}, file: ${path}", ['app' => Application::APP_ID]);
         // check user & path exist
         $user = $this->userManager->get($uid);
         if (! $user || ! $path) {
+            $this->logger->warning("user or file not exist", ['app' => Application::APP_ID]);
             http_response_code(404);
             exit;
         }
@@ -86,6 +89,7 @@ class PathController extends Controller
         $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
         $userEnabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
         if ($userEnabled === 'no' || (! $userEnabled && $enabled !== 'yes')) {
+            $this->logger->warning("app not enabled, user enabled: ${userEnabled}, enabled: ${enabled}", ['app' => Application::APP_ID]);
             http_response_code(403);
             exit;
         }
@@ -99,6 +103,7 @@ class PathController extends Controller
             $isPublic = $sharingFolder && str_starts_with(trim($path, '/') . '/', trim($sharingFolder, '/') . '/');
             // check file is under sharing folder or is shared
             if (! $isPublic && ! $this->isShared($uid, $path)) {
+                $this->logger->warning("file not public, sharing folder: ${sharingFolder}", ['app' => Application::APP_ID]);
                 http_response_code(404);
                 exit;
             }
@@ -162,11 +167,11 @@ class PathController extends Controller
             exit;
         } catch (NotFoundException $e) {
             http_response_code(404);
-            $this->logger->warning("request user {$uid} file {$path} not found.", ['app' => Application::APP_ID]);
+            $this->logger->warning("not found, user: ${uid}, file: ${path}", ['app' => Application::APP_ID]);
             exit;
         } catch (\Exception $e) {
             http_response_code(500);
-            $this->logger->error("request user {$uid} file {$path} failed: " . $e->getMessage(), [
+            $this->logger->error("server error, user: ${uid}, file: ${path}, message: {$e->getMessage()}", [
                 'app'           => Application::APP_ID,
                 'extra_context' => $e->getTrace(),
             ]);
@@ -305,4 +310,12 @@ class PathController extends Controller
         return $rangeArray;
     }
 
+}
+
+
+if (! function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return 0 === strncmp($haystack, $needle, \strlen($needle));
+    }
 }

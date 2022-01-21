@@ -2,6 +2,13 @@
 # Change logs
 
 
+## 0.4.4(nightly) - 2022-01-21
+
+- Add debug log for [#39](https://github.com/rookie0/nextcloud-sharing-path/issues/39)
+- Function `str_starts_with` polyfill
+- Nextcloud app store description
+
+
 ## 0.4.3 - 2021-09-23
 
 - Fix logged in user request error [#23](https://github.com/rookie0/nextcloud-sharing-path/issues/23), [#31](https://github.com/rookie0/nextcloud-sharing-path/issues/31)

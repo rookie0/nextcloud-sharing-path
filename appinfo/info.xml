@@ -4,10 +4,29 @@
     <id>sharingpath</id>
     <name>Sharing Path</name>
     <summary>Files sharing use stored path. Easy share, multi-use.</summary>
-    <description>
-        <![CDATA[Files sharing use file stored path. Now you cau use nextcloud as your CDN origin.
-        What you need to do is just share your files, then click Open Sharing Path to access from files dropdown actions menu. ]]></description>
-    <version>0.4.3</version>
+    <description><![CDATA[
+# Sharing Path  [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F1F51I62J)
+
+Sharing Path enhance files sharing usage. Easy share, multi-use.
+
+Now you can share your files by path format like below:
+
+`https://youre-domain/nextcloud/apps/sharingpath/username/shared-file-stored-path`
+
+In this way, you can use your nextcloud as CDN origin storage 🌩.
+
+⚠️ **Attention** *Potential security risk: links could be guessed and the files in shared directories can be accessed.*
+
+
+## Usage
+
+Check `Enable sharing path` at `Setting` > `Sharing` first.
+
+Then just share your files or directories(add a share link without `Hide download` or `Password protect` and not expired if expiration date has set), then you can get the url by click `Copy Sharing Path` from more icon `···` dropdown actions menu or right click menu.
+
+There are some settings in `Settings` > `Sharing`(Administration & Personal) > `Sharing Path` you may need take a look.
+    ]]></description>
+    <version>0.4.4</version>
     <licence>agpl</licence>
     <author mail="j4fdot@qq.com">Rookie0</author>
     <namespace>SharingPath</namespace>
@@ -19,7 +38,7 @@
         https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png
     </screenshot>
     <dependencies>
-        <nextcloud min-version="20" max-version="23"/>
+        <nextcloud min-version="20" max-version="24"/>
     </dependencies>
 
     <settings>
