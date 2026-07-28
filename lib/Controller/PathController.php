@@ -2,18 +2,18 @@
 
 namespace OCA\SharingPath\Controller;
 
-use OC\Files\Filesystem;
-use OC_Response;
 use OCA\SharingPath\AppInfo\Application;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\PublicPage;
+use OCP\Files\File;
 use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
-use OCP\Files\UnseekableException;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserManager;
-use OCP\IUserSession;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
@@ -26,7 +26,6 @@ class PathController extends Controller
     private $rootFolder;
     private $logger;
     private $mimeTypeDetector;
-    private $userSession;
 
     public function __construct($appName,
                                 IRequest $request,
@@ -35,8 +34,7 @@ class PathController extends Controller
                                 IManager $shareManager,
                                 IRootFolder $rootFolder,
                                 LoggerInterface $logger,
-                                IMimeTypeDetector $mimeTypeDetector,
-                                IUserSession $userSession)
+                                IMimeTypeDetector $mimeTypeDetector)
     {
         parent::__construct($appName, $request);
 
@@ -46,7 +44,6 @@ class PathController extends Controller
         $this->rootFolder = $rootFolder;
         $this->logger = $logger;
         $this->mimeTypeDetector = $mimeTypeDetector;
-        $this->userSession = $userSession;
     }
 
     /**
@@ -55,9 +52,12 @@ class PathController extends Controller
      * @NoCSRFRequired
      * @NoSameSiteCookieRequired
      */
+    #[PublicPage]
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function index()
     {
-        $this->logger->warning("request index not allowed", ['app' => Application::APP_ID]);
+        $this->logger->warning('request index not allowed', ['app' => Application::APP_ID]);
         http_response_code(404);
         exit;
     }
@@ -74,22 +74,24 @@ class PathController extends Controller
      * @NoCSRFRequired
      * @NoSameSiteCookieRequired
      */
+    #[PublicPage]
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function handle($uid, $path)
     {
-        $this->logger->warning("user: ${uid}, file: ${path}", ['app' => Application::APP_ID]);
         // check user & path exist
         $user = $this->userManager->get($uid);
         if (! $user || ! $path) {
-            $this->logger->warning("user or file not exist", ['app' => Application::APP_ID]);
+            $this->logger->warning("user or file not exist, user: {$uid}", ['app' => Application::APP_ID]);
             http_response_code(404);
             exit;
         }
 
-        // check use is enabled sharing path
+        // check user has enabled sharing path
         $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
         $userEnabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
         if ($userEnabled === 'no' || (! $userEnabled && $enabled !== 'yes')) {
-            $this->logger->warning("app not enabled, user enabled: ${userEnabled}, enabled: ${enabled}", ['app' => Application::APP_ID]);
+            $this->logger->warning("app not enabled, user enabled: {$userEnabled}, enabled: {$enabled}", ['app' => Application::APP_ID]);
             http_response_code(403);
             exit;
         }
@@ -103,77 +105,80 @@ class PathController extends Controller
             $isPublic = $sharingFolder && str_starts_with(trim($path, '/') . '/', trim($sharingFolder, '/') . '/');
             // check file is under sharing folder or is shared
             if (! $isPublic && ! $this->isShared($uid, $path)) {
-                $this->logger->warning("file not public, sharing folder: ${sharingFolder}", ['app' => Application::APP_ID]);
+                $this->logger->warning("file not public, sharing folder: {$sharingFolder}", ['app' => Application::APP_ID]);
                 http_response_code(404);
                 exit;
             }
 
             // todo version file handle
 
-            // if user is logged in, need reset filesystem
-            $loggedByOther = $this->userSession->isLoggedIn() && $this->userSession->getUser()->getUID() !== $uid;
-            if ($loggedByOther) {
-                \OC_Util::tearDownFS();
+            $node = $userFolder->get($path);
+            if (! ($node instanceof File)) {
+                // directories cannot be fetched directly
+                http_response_code(404);
+                exit;
             }
-            \OC_Util::setupFS($uid);
-            $path = $userFolder->getRelativePath($userFolder->get($path)->getPath());
-            $fileSize = Filesystem::filesize($path);
+
+            $fileSize = $node->getSize();
+            $mimeType = $this->mimeTypeDetector->getSecureMimeType($node->getMimeType());
 
             $rangeArray = [];
-            if (isset($_SERVER['HTTP_RANGE']) &&
-                substr($this->request->getHeader('Range'), 0, 6) === 'bytes=') {
+            if (substr($this->request->getHeader('Range'), 0, 6) === 'bytes=') {
                 $rangeArray = self::parseHttpRangeHeader(substr($this->request->getHeader('Range'), 6), $fileSize);
             }
 
-            $this->sendHeaders($path, $rangeArray);
+            $this->sendHeaders($mimeType, $fileSize, $rangeArray);
 
             if ($this->request->getMethod() === 'HEAD') {
                 exit;
             }
 
-            $view = Filesystem::getView();
+            // drop any output buffering before streaming file contents
+            while (ob_get_level() > 0) {
+                @ob_end_clean();
+            }
+
+            $stream = $node->fopen('r');
+            if (! is_resource($stream)) {
+                throw new NotFoundException('unable to open file for reading');
+            }
+
             if (! empty($rangeArray)) {
-                try {
-                    if (count($rangeArray) == 1) {
-                        $view->readfilePart($path, $rangeArray[0]['from'], $rangeArray[0]['to']);
-                    } else {
-                        // check if file is seekable (if not throw UnseekableException)
-                        // we have to check it before body contents
-                        $view->readfilePart($path, $rangeArray[0]['size'], $rangeArray[0]['size']);
-
-                        $type = $this->mimeTypeDetector->getSecureMimeType(Filesystem::getMimeType($path));
-
-                        foreach ($rangeArray as $range) {
-                            echo "\r\n--" . self::getBoundary() . "\r\n" .
-                                "Content-type: " . $type . "\r\n" .
-                                "Content-range: bytes " . $range['from'] . "-" . $range['to'] . "/" . $range['size'] . "\r\n\r\n";
-                            $view->readfilePart($path, $range['from'], $range['to']);
-                        }
-                        echo "\r\n--" . self::getBoundary() . "--\r\n";
-                    }
-                } catch (UnseekableException $ex) {
-                    // file is unseekable
+                if (@fseek($stream, $rangeArray[0]['from']) === -1) {
+                    // stream is not seekable, fall back to a full response
                     header_remove('Accept-Ranges');
                     header_remove('Content-Range');
                     http_response_code(200);
-                    $this->sendHeaders($path, array());
-                    $view->readfile($path);
+                    header('Content-Length: ' . $fileSize, true);
+                    self::streamData($stream, null);
+                } elseif (count($rangeArray) === 1) {
+                    self::streamData($stream, $rangeArray[0]['to'] - $rangeArray[0]['from'] + 1);
+                } else {
+                    foreach ($rangeArray as $range) {
+                        echo "\r\n--" . self::getBoundary() . "\r\n" .
+                            'Content-type: ' . $mimeType . "\r\n" .
+                            'Content-range: bytes ' . $range['from'] . '-' . $range['to'] . '/' . $range['size'] . "\r\n\r\n";
+                        fseek($stream, $range['from']);
+                        self::streamData($stream, $range['to'] - $range['from'] + 1);
+                    }
+                    echo "\r\n--" . self::getBoundary() . "--\r\n";
                 }
             } else {
-                $view->readfile($path);
+                self::streamData($stream, null);
             }
+            fclose($stream);
 
             // FIXME: The exit is required here because otherwise the AppFramework is trying to add headers as well
             exit;
         } catch (NotFoundException $e) {
             http_response_code(404);
-            $this->logger->warning("not found, user: ${uid}, file: ${path}", ['app' => Application::APP_ID]);
+            $this->logger->warning("not found, user: {$uid}, file: {$path}", ['app' => Application::APP_ID]);
             exit;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             http_response_code(500);
-            $this->logger->error("server error, user: ${uid}, file: ${path}, message: {$e->getMessage()}", [
-                'app'           => Application::APP_ID,
-                'extra_context' => $e->getTrace(),
+            $this->logger->error("server error, user: {$uid}, file: {$path}, message: {$e->getMessage()}", [
+                'app'       => Application::APP_ID,
+                'exception' => $e,
             ]);
             exit;
         }
@@ -181,13 +186,14 @@ class PathController extends Controller
 
     private function isShared($uid, $path)
     {
-        $segments = explode(DIRECTORY_SEPARATOR, $path);
+        $userFolder = $this->rootFolder->getUserFolder($uid);
+        $segments = explode('/', trim($path, '/'));
         $len = count($segments);
         $now = time();
         $shared = false;
         for ($i = $len; $i > 0; $i--) {
-            $tmpPath = implode(DIRECTORY_SEPARATOR, array_slice($segments, 0, $i));
-            $userPath = $this->rootFolder->getUserFolder($uid)->get($tmpPath);
+            $tmpPath = implode('/', array_slice($segments, 0, $i));
+            $userPath = $userFolder->get($tmpPath);
             $shares = $this->shareManager->getSharesBy($uid, IShare::TYPE_LINK, $userPath);
             $share = $shares[0] ?? null;
 
@@ -207,18 +213,17 @@ class PathController extends Controller
     }
 
     /**
-     * Copy from OC_Files without setContentDispositionHeader
-     * @param string $filename
+     * @param string $mimeType
+     * @param int|float $fileSize
      * @param array  $rangeArray ('from'=>int,'to'=>int), ...
      */
-    private function sendHeaders($filename, array $rangeArray)
+    private function sendHeaders(string $mimeType, $fileSize, array $rangeArray)
     {
         header('Content-Transfer-Encoding: binary', true);
         header('Pragma: public');// enable caching in IE
         header('Expires: 0');
-        header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-        $fileSize = Filesystem::filesize($filename);
-        $type = $this->mimeTypeDetector->getSecureMimeType(Filesystem::getMimeType($filename));
+        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+        $type = $mimeType;
         if ($fileSize > -1) {
             if (! empty($rangeArray)) {
                 http_response_code(206);
@@ -228,13 +233,45 @@ class PathController extends Controller
                     // no Content-Length header here
                 } else {
                     header(sprintf('Content-Range: bytes %d-%d/%d', $rangeArray[0]['from'], $rangeArray[0]['to'], $fileSize), true);
-                    OC_Response::setContentLengthHeader($rangeArray[0]['to'] - $rangeArray[0]['from'] + 1);
+                    header('Content-Length: ' . ($rangeArray[0]['to'] - $rangeArray[0]['from'] + 1), true);
                 }
             } else {
-                OC_Response::setContentLengthHeader($fileSize);
+                header('Content-Length: ' . $fileSize, true);
             }
         }
         header('Content-Type: ' . $type, true);
+    }
+
+    /**
+     * Echo data from a stream, optionally limited to $bytes bytes
+     * @param resource $stream
+     * @param int|float|null $bytes null streams until EOF
+     */
+    private static function streamData($stream, $bytes)
+    {
+        $chunkSize = 512 * 1024;
+        if ($bytes === null) {
+            while (! feof($stream)) {
+                $data = fread($stream, $chunkSize);
+                if ($data === false) {
+                    break;
+                }
+                echo $data;
+                flush();
+            }
+            return;
+        }
+
+        $remaining = $bytes;
+        while ($remaining > 0 && ! feof($stream)) {
+            $data = fread($stream, (int) min($chunkSize, $remaining));
+            if ($data === false || $data === '') {
+                break;
+            }
+            echo $data;
+            flush();
+            $remaining -= strlen($data);
+        }
     }
 
     /**

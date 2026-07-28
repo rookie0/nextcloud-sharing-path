@@ -6,6 +6,7 @@ use OCA\SharingPath\AppInfo\Application;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IConfig;
 use OCP\IL10N;
+use OCP\IUserSession;
 use OCP\Settings\ISettings;
 
 class Personal implements ISettings
@@ -13,16 +14,19 @@ class Personal implements ISettings
 
     private $config;
     private $l;
+    private $userSession;
 
-    public function __construct(IConfig $config, IL10N $l)
+    public function __construct(IConfig $config, IL10N $l, IUserSession $userSession)
     {
         $this->config = $config;
         $this->l = $l;
+        $this->userSession = $userSession;
     }
 
     public function getForm()
     {
-        $uid = \OC_User::getUser();
+        $user = $this->userSession->getUser();
+        $uid = $user ? $user->getUID() : '';
         $enabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
         $defaultEnabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
         $prefix = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_COPY_PREFIX);
