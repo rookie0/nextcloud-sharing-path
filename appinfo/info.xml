@@ -18,6 +18,11 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 ⚠️ **Attention** *Potential security risk: links could be guessed and the files in shared directories can be accessed.*
 
 
+## Disclaimer
+
+This maintenance fork (v0.7.0+) was modernized with substantial assistance from an AI coding agent (Claude Code) and tested against Nextcloud 33.0.6. The software is provided **"as is"** without warranty of any kind; the authors and maintainers accept **no liability** for damages or unintended exposure of files (see AGPL sections 15 and 16). Review before use in critical environments — use at your own risk.
+
+
 ## Usage
 
 Check `Enable sharing path` at `Setting` > `Sharing` first.

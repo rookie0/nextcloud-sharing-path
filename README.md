@@ -75,6 +75,26 @@ you may want to take a look at.
 <p align="center"><img src="https://user-images.githubusercontent.com/5813232/103185234-7363b100-48f6-11eb-8c67-cb9a587bd45a.png" alt="Nextcloud Sharing Path" width="500"></p>
 
 
+## Disclaimer
+
+**AI-assisted development.** The Nextcloud 25–34 compatibility changes in this fork
+(v0.7.0 and later) were developed and tested with substantial assistance from an AI coding
+agent (Claude Code by Anthropic). Every change was verified against a real Nextcloud 33.0.6
+instance (download matrix including range requests, files UI action, settings pages), but as
+with any software: review the code yourself before deploying it to critical environments.
+
+**No warranty, no liability.** This software is provided **“as is”**, without warranty of any
+kind, express or implied. To the maximum extent permitted by applicable law, the authors and
+maintainers of this fork accept **no liability** for any damages arising from its use —
+including, without limitation, data loss or the unintended public exposure of files. Use at
+your own risk. The governing terms are sections 15 (“Disclaimer of Warranty”) and 16
+(“Limitation of Liability”) of the [AGPL license](./COPYING).
+
+**Security note.** By design, everything below a shared folder (or a configured sharing
+folder) becomes reachable by guessable public URLs without further authentication. Decide
+consciously where this app is appropriate.
+
+
 ## Changelog
 
 See [CHANGELOG](CHANGELOG.md)
