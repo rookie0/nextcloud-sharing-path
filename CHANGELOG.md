@@ -2,6 +2,33 @@
 # Change logs
 
 
+## 0.7.0 - 2026-07-28
+
+Compatibility release for Nextcloud 25 - 34, tested against Nextcloud 33.0.6 (Hub 26 Winter).
+First release of the [arundne maintenance fork](https://github.com/arundne/nextcloud-sharing-path).
+Version 0.6.0 is skipped intentionally: the AnotherFoxGuy fork already uses it, and Nextcloud
+refuses app downgrades, so this release must sort higher.
+
+- Fix `Internal Server Error` on every download since Nextcloud 33: the removed private class
+  `OC_Response` was still used for the `Content-Length` header
+- Stream files through the public OCP API (`IRootFolder` / `File::fopen`) instead of the private
+  `OC_Util::setupFS` / `OC\Files\Filesystem` / `View` internals, so future core refactorings
+  no longer break the download endpoint (range / multipart range requests still supported)
+- Catch `\Throwable` instead of `\Exception` so PHP engine errors are logged to `nextcloud.log`
+  instead of producing an anonymous 500 page
+- Add the modern security attributes (`#[PublicPage]`, `#[NoCSRFRequired]`, ...) alongside the
+  deprecated annotations
+- Restore the `Copy sharing path` file action on Nextcloud 28+ (Vue files app): register through
+  the `@nextcloud/files` v3 array registry and the v4 scoped registry (Nextcloud 33+), loaded as
+  init script; German label `Sharing-Pfad kopieren`
+- Replace removed `OC.getProtocol()` / `OC.getHost()` with `location.origin`; clipboard now uses
+  `navigator.clipboard` with a legacy fallback
+- Replace legacy `OC_User::getUser()` with `IUserSession` in the personal settings
+- Load the files integration via the typed `LoadAdditionalScriptsEvent` (the legacy string event
+  is kept for old releases)
+- Fix deprecated `${var}` string interpolation (PHP 8.2+)
+
+
 ## 0.4.4(nightly) - 2022-01-21
 
 - Add debug log for [#39](https://github.com/rookie0/nextcloud-sharing-path/issues/39)
