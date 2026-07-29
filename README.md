@@ -37,6 +37,19 @@ above the version used by the (also broken on NC 33) AnotherFoxGuy fork, since N
 refuses app downgrades.
 
 
+## Two app ids
+
+This code base ships under two app ids, built by `./build.sh`:
+
+| App id | URL | Purpose |
+| --- | --- | --- |
+| `sharingpath` | `/apps/sharingpath/<user>/<path>` | The original app id. Keeps existing links working — requires the App Store entry to be transferred (see [rookie0#59](https://github.com/rookie0/nextcloud-sharing-path/issues/59)). |
+| `sharepath` | `/apps/sharepath/<user>/<path>` | An independent app id that can be published without waiting for that transfer. |
+
+They are functionally identical and can be installed side by side — the
+variant carries its own PHP namespace so the two never collide.
+
+
 ## Installation
 
 No build step needed — the app runs as-is.
