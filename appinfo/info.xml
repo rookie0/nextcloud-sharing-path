@@ -31,7 +31,7 @@ Then just share your files or directories(add a share link without `Hide downloa
 
 There are some settings in `Settings` > `Sharing`(Administration & Personal) > `Sharing Path` you may need take a look.
     ]]></description>
-    <version>0.7.0</version>
+    <version>0.7.1</version>
     <licence>agpl</licence>
     <author>Rookie0</author>
     <author homepage="https://github.com/arundne">arundne (maintenance fork)</author>

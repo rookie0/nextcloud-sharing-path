@@ -2,6 +2,20 @@
 # Change logs
 
 
+## 0.7.1 - 2026-07-29
+
+**Security fix.** Please update.
+
+- The settings endpoints decided whether to write the instance wide defaults purely
+  from a `type=admin` request parameter, which any logged-in account could send. A
+  non-admin could therefore overwrite the admin defaults — including
+  `default_sharing_folder`, which controls what is served without a share and could
+  be pointed at other accounts' folders. Admin rights are now checked against group
+  membership; a non-admin request for the defaults is rejected with `403`. Present in
+  all upstream releases; reported against the fork before the first App Store release.
+- Ship a second app id, `sharepath`, built from the same code base (see README)
+
+
 ## 0.7.0 - 2026-07-28
 
 Compatibility release for Nextcloud 25 - 34, tested against Nextcloud 33.0.6 (Hub 26 Winter).
