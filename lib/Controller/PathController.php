@@ -3,14 +3,17 @@
 namespace OCA\SharingPath\Controller;
 
 use OCA\SharingPath\AppInfo\Application;
+use OCA\SharingPath\Http\ByteRange;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
+use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
+use OCP\Files\NotPermittedException;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserManager;
@@ -27,17 +30,12 @@ class PathController extends Controller
     private $logger;
     private $mimeTypeDetector;
 
-    public function __construct($appName,
-                                IRequest $request,
-                                IConfig $config,
-                                IUserManager $userManager,
-                                IManager $shareManager,
-                                IRootFolder $rootFolder,
-                                LoggerInterface $logger,
+    public function __construct($appName, IRequest $request, IConfig $config,
+                                IUserManager $userManager, IManager $shareManager,
+                                IRootFolder $rootFolder, LoggerInterface $logger,
                                 IMimeTypeDetector $mimeTypeDetector)
     {
         parent::__construct($appName, $request);
-
         $this->config = $config;
         $this->userManager = $userManager;
         $this->shareManager = $shareManager;
@@ -46,8 +44,7 @@ class PathController extends Controller
         $this->mimeTypeDetector = $mimeTypeDetector;
     }
 
-    /**
-     * @PublicPage
+    /** @PublicPage
      * @NoAdminRequired
      * @NoCSRFRequired
      * @NoSameSiteCookieRequired
@@ -57,19 +54,11 @@ class PathController extends Controller
     #[NoCSRFRequired]
     public function index()
     {
-        $this->logger->warning('request index not allowed', ['app' => Application::APP_ID]);
         http_response_code(404);
         exit;
     }
 
-    /**
-     * CAUTION: the @Stuff turns off security checks; for this page no admin is
-     *          required and no CSRF check. If you don't know what CSRF is, read
-     *          it up in the docs or you might create a security hole. This is
-     *          basically the only required method to add this exemption, don't
-     *          add it to any other method if you don't exactly know what it does
-     *
-     * @PublicPage
+    /** @PublicPage
      * @NoAdminRequired
      * @NoCSRFRequired
      * @NoSameSiteCookieRequired
@@ -79,280 +68,179 @@ class PathController extends Controller
     #[NoCSRFRequired]
     public function handle($uid, $path)
     {
-        // check user & path exist
-        $user = $this->userManager->get($uid);
-        if (! $user || ! $path) {
-            $this->logger->warning("user or file not exist, user: {$uid}", ['app' => Application::APP_ID]);
-            http_response_code(404);
-            exit;
-        }
-
-        // check user has enabled sharing path
-        $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
-        $userEnabled = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
-        if ($userEnabled === 'no' || (! $userEnabled && $enabled !== 'yes')) {
-            $this->logger->warning("app not enabled, user enabled: {$userEnabled}, enabled: {$enabled}", ['app' => Application::APP_ID]);
-            http_response_code(403);
-            exit;
-        }
-
+        $stream = null;
         try {
-            $userFolder = $this->rootFolder->getUserFolder($uid);
-            $sharingFolder = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_SHARING_FOLDER);
-            $userSharingFolder = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_SHARING_FOLDER);
-
-            $sharingFolder = $userSharingFolder ?: $sharingFolder;
-            $isPublic = $sharingFolder && str_starts_with(trim($path, '/') . '/', trim($sharingFolder, '/') . '/');
-            // check file is under sharing folder or is shared
-            if (! $isPublic && ! $this->isShared($uid, $path)) {
-                $this->logger->warning("file not public, sharing folder: {$sharingFolder}", ['app' => Application::APP_ID]);
-                http_response_code(404);
+            $user = $this->userManager->get($uid);
+            if (!$user || !$user->isEnabled() || !self::validPath($path)) {
+                throw new NotFoundException();
+            }
+            $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
+            $personal = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
+            if ($personal === 'no' || ($personal !== 'yes' && $enabled !== 'yes')) {
+                http_response_code(403);
                 exit;
             }
 
-            // todo version file handle
+            $folder = $this->rootFolder->getUserFolder($uid);
+            $node = $folder->get($path);
+            if (!$node instanceof File) {
+                throw new NotFoundException();
+            }
+            // Authorize the resolved node, never a raw URL prefix before resolution.
+            $relative = $folder->getRelativePath($node->getPath());
+            if (!is_string($relative) || !self::validPath($relative)) {
+                throw new NotFoundException();
+            }
+            $relative = trim($relative, '/');
+            $publicFolder = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_SHARING_FOLDER)
+                ?: $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_SHARING_FOLDER);
+            $publicFolder = trim($publicFolder, '/');
+            $inPublicFolder = self::validPath($publicFolder)
+                && strpos($relative . '/', $publicFolder . '/') === 0;
+            if (!$inPublicFolder && !$this->isShared($uid, $relative)) {
+                throw new NotFoundException();
+            }
 
-            $node = $userFolder->get($path);
-            if (! ($node instanceof File)) {
-                // directories cannot be fetched directly
-                http_response_code(404);
+            $size = (int) $node->getSize();
+            $mime = $this->mimeTypeDetector->getSecureMimeType($node->getMimeType());
+            $head = $this->request->getMethod() === 'HEAD';
+            // Without a matching validator, If-Range must produce the full representation.
+            $ranges = (!$head && $this->request->getHeader('If-Range') === '')
+                ? ByteRange::parse($this->request->getHeader('Range'), $size) : null;
+            if ($ranges === []) {
+                http_response_code(416);
+                header('Content-Range: bytes */' . $size);
+                header('Content-Length: 0');
+                header('Cache-Control: no-store');
                 exit;
             }
-
-            $fileSize = $node->getSize();
-            $mimeType = $this->mimeTypeDetector->getSecureMimeType($node->getMimeType());
-
-            $rangeArray = [];
-            if (substr($this->request->getHeader('Range'), 0, 6) === 'bytes=') {
-                $rangeArray = self::parseHttpRangeHeader(substr($this->request->getHeader('Range'), 6), $fileSize);
-            }
-
-            $this->sendHeaders($mimeType, $fileSize, $rangeArray);
-
-            if ($this->request->getMethod() === 'HEAD') {
-                exit;
-            }
-
-            // drop any output buffering before streaming file contents
-            while (ob_get_level() > 0) {
-                @ob_end_clean();
-            }
-
-            $stream = $node->fopen('r');
-            if (! is_resource($stream)) {
-                throw new NotFoundException('unable to open file for reading');
-            }
-
-            if (! empty($rangeArray)) {
-                if (@fseek($stream, $rangeArray[0]['from']) === -1) {
-                    // stream is not seekable, fall back to a full response
-                    header_remove('Accept-Ranges');
-                    header_remove('Content-Range');
-                    http_response_code(200);
-                    header('Content-Length: ' . $fileSize, true);
-                    self::streamData($stream, null);
-                } elseif (count($rangeArray) === 1) {
-                    self::streamData($stream, $rangeArray[0]['to'] - $rangeArray[0]['from'] + 1);
-                } else {
-                    foreach ($rangeArray as $range) {
-                        echo "\r\n--" . self::getBoundary() . "\r\n" .
-                            'Content-type: ' . $mimeType . "\r\n" .
-                            'Content-range: bytes ' . $range['from'] . '-' . $range['to'] . '/' . $range['size'] . "\r\n\r\n";
-                        fseek($stream, $range['from']);
-                        self::streamData($stream, $range['to'] - $range['from'] + 1);
-                    }
-                    echo "\r\n--" . self::getBoundary() . "--\r\n";
+            $ranges = $ranges ?? [];
+            if (!$head) {
+                $stream = $node->fopen('r');
+                if (!is_resource($stream)) {
+                    throw new NotFoundException();
                 }
+                if ($ranges && @fseek($stream, $ranges[0]['from']) !== 0) {
+                    // Reopen to guarantee a full response starts at byte zero.
+                    fclose($stream);
+                    $stream = $node->fopen('r');
+                    if (!is_resource($stream)) {
+                        throw new NotFoundException();
+                    }
+                    $ranges = [];
+                }
+            }
+            $boundary = 'sharingpath-' . bin2hex(random_bytes(16));
+            $this->sendHeaders($mime, $size, $ranges, $boundary);
+            if ($head) {
+                exit;
+            }
+            while (ob_get_level() > 0) {
+                if (!@ob_end_clean()) {
+                    break;
+                }
+            }
+            if (count($ranges) > 1) {
+                foreach ($ranges as $index => $range) {
+                    if ($index > 0 && fseek($stream, $range['from']) !== 0) {
+                        throw new \RuntimeException('Unable to seek download stream');
+                    }
+                    echo "--{$boundary}\r\nContent-Type: {$mime}\r\n"
+                        . "Content-Range: bytes {$range['from']}-{$range['to']}/{$size}\r\n\r\n";
+                    self::streamData($stream, $range['to'] - $range['from'] + 1);
+                    echo "\r\n";
+                }
+                echo "--{$boundary}--\r\n";
             } else {
-                self::streamData($stream, null);
+                self::streamData($stream, $ranges ? $ranges[0]['to'] - $ranges[0]['from'] + 1 : null);
             }
             fclose($stream);
-
-            // FIXME: The exit is required here because otherwise the AppFramework is trying to add headers as well
             exit;
-        } catch (NotFoundException $e) {
-            http_response_code(404);
-            $this->logger->warning("not found, user: {$uid}, file: {$path}", ['app' => Application::APP_ID]);
-            exit;
-        } catch (\Throwable $e) {
-            http_response_code(500);
-            $this->logger->error("server error, user: {$uid}, file: {$path}, message: {$e->getMessage()}", [
-                'app'       => Application::APP_ID,
-                'exception' => $e,
-            ]);
-            exit;
+        } catch (NotFoundException | NotPermittedException $error) {
+            if (!headers_sent()) {
+                header_remove('Content-Length');
+                header_remove('Content-Range');
+                http_response_code(404);
+            }
+        } catch (\Throwable $error) {
+            if (!headers_sent()) {
+                header_remove('Content-Length');
+                header_remove('Content-Range');
+                http_response_code(500);
+            }
+            $this->logger->error('Sharing Path download failed', ['app' => Application::APP_ID, 'exception' => $error]);
         }
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+        exit;
     }
 
-    private function isShared($uid, $path)
+    private static function validPath(string $path): bool
     {
-        $userFolder = $this->rootFolder->getUserFolder($uid);
-        $segments = explode('/', trim($path, '/'));
-        $len = count($segments);
-        $now = time();
-        $shared = false;
-        for ($i = $len; $i > 0; $i--) {
-            $tmpPath = implode('/', array_slice($segments, 0, $i));
-            $userPath = $userFolder->get($tmpPath);
-            $shares = $this->shareManager->getSharesBy($uid, IShare::TYPE_LINK, $userPath);
-            $share = $shares[0] ?? null;
-
-            // shared but checked hide download or password protect or expired
-            if ($share && (
-                    $share->getHideDownload() ||
-                    $share->getPassword() || (
-                        $share->getExpirationDate() &&
-                        $share->getExpirationDate()->getTimestamp() < $now))) {
+        if (trim($path, '/') === '' || strpos($path, "\0") !== false || strpos($path, '\\') !== false) {
+            return false;
+        }
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '.' || $segment === '..') {
                 return false;
-            } elseif ($share) {
+            }
+        }
+        return true;
+    }
+
+    private function isShared(string $uid, string $path): bool
+    {
+        $folder = $this->rootFolder->getUserFolder($uid);
+        $parts = explode('/', $path);
+        $shared = false;
+        for ($length = count($parts); $length > 0; $length--) {
+            $node = $folder->get(implode('/', array_slice($parts, 0, $length)));
+            foreach ($this->shareManager->getSharesBy($uid, IShare::TYPE_LINK, $node) as $share) {
+                // Keep restrictions effective even when several link shares exist.
+                if ($share->getHideDownload() || $share->getPassword()
+                    || !($share->getPermissions() & Constants::PERMISSION_READ)
+                    || ($share->getExpirationDate() && $share->getExpirationDate()->getTimestamp() <= time())) {
+                    return false;
+                }
                 $shared = true;
             }
         }
-
         return $shared;
     }
 
-    /**
-     * @param string $mimeType
-     * @param int|float $fileSize
-     * @param array  $rangeArray ('from'=>int,'to'=>int), ...
-     */
-    private function sendHeaders(string $mimeType, $fileSize, array $rangeArray)
+    private function sendHeaders(string $mime, int $size, array $ranges, string $boundary): void
     {
-        header('Content-Transfer-Encoding: binary', true);
-        header('Pragma: public');// enable caching in IE
-        header('Expires: 0');
-        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-        $type = $mimeType;
-        if ($fileSize > -1) {
-            if (! empty($rangeArray)) {
-                http_response_code(206);
-                header('Accept-Ranges: bytes', true);
-                if (count($rangeArray) > 1) {
-                    $type = 'multipart/byteranges; boundary=' . self::getBoundary();
-                    // no Content-Length header here
-                } else {
-                    header(sprintf('Content-Range: bytes %d-%d/%d', $rangeArray[0]['from'], $rangeArray[0]['to'], $fileSize), true);
-                    header('Content-Length: ' . ($rangeArray[0]['to'] - $rangeArray[0]['from'] + 1), true);
-                }
-            } else {
-                header('Content-Length: ' . $fileSize, true);
+        http_response_code($ranges ? 206 : 200);
+        header('Cache-Control: no-store');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Type: ' . (count($ranges) > 1 ? 'multipart/byteranges; boundary=' . $boundary : $mime));
+        if ($ranges) {
+            header('Accept-Ranges: bytes');
+            if (count($ranges) === 1) {
+                header("Content-Range: bytes {$ranges[0]['from']}-{$ranges[0]['to']}/{$size}");
+                header('Content-Length: ' . ($ranges[0]['to'] - $ranges[0]['from'] + 1));
             }
+        } elseif ($size >= 0) {
+            header('Content-Length: ' . $size);
         }
-        header('Content-Type: ' . $type, true);
     }
 
-    /**
-     * Echo data from a stream, optionally limited to $bytes bytes
-     * @param resource $stream
-     * @param int|float|null $bytes null streams until EOF
-     */
-    private static function streamData($stream, $bytes)
+    private static function streamData($stream, ?int $bytes): void
     {
-        $chunkSize = 512 * 1024;
-        if ($bytes === null) {
-            while (! feof($stream)) {
-                $data = fread($stream, $chunkSize);
-                if ($data === false) {
-                    break;
-                }
-                echo $data;
-                flush();
-            }
-            return;
-        }
-
-        $remaining = $bytes;
-        while ($remaining > 0 && ! feof($stream)) {
-            $data = fread($stream, (int) min($chunkSize, $remaining));
-            if ($data === false || $data === '') {
-                break;
+        while (!feof($stream) && ($bytes === null || $bytes > 0)) {
+            $data = fread($stream, $bytes === null ? 524288 : min(524288, $bytes));
+            if ($data === false || ($data === '' && !feof($stream))) {
+                throw new \RuntimeException('Unable to read download stream');
             }
             echo $data;
+            if ($bytes !== null) {
+                $bytes -= strlen($data);
+            }
             flush();
-            $remaining -= strlen($data);
         }
-    }
-
-    /**
-     * Copy from OC_Files
-     * @var string
-     */
-    private static $multipartBoundary = '';
-
-    /**
-     * @return string
-     */
-    private static function getBoundary()
-    {
-        if (empty(self::$multipartBoundary)) {
-            self::$multipartBoundary = md5(mt_rand());
+        if ($bytes !== null && $bytes > 0) {
+            throw new \RuntimeException('Unexpected end of download stream');
         }
-        return self::$multipartBoundary;
-    }
-
-    /**
-     * Copy from OC_Files
-     * @param string $rangeHeaderPos
-     * @param int    $fileSize
-     * @return array $rangeArray ('from'=>int,'to'=>int), ...
-     */
-    private static function parseHttpRangeHeader($rangeHeaderPos, $fileSize)
-    {
-        $rArray = explode(',', $rangeHeaderPos);
-        $minOffset = 0;
-        $ind = 0;
-
-        $rangeArray = array();
-
-        foreach ($rArray as $value) {
-            $ranges = explode('-', $value);
-            if (is_numeric($ranges[0])) {
-                if ($ranges[0] < $minOffset) { // case: bytes=500-700,601-999
-                    $ranges[0] = $minOffset;
-                }
-                if ($ind > 0 && $rangeArray[$ind - 1]['to'] + 1 == $ranges[0]) { // case: bytes=500-600,601-999
-                    $ind--;
-                    $ranges[0] = $rangeArray[$ind]['from'];
-                }
-            }
-
-            if (is_numeric($ranges[0]) && is_numeric($ranges[1]) && $ranges[0] < $fileSize && $ranges[0] <= $ranges[1]) {
-                // case: x-x
-                if ($ranges[1] >= $fileSize) {
-                    $ranges[1] = $fileSize - 1;
-                }
-                $rangeArray[$ind++] = array('from' => $ranges[0], 'to' => $ranges[1], 'size' => $fileSize);
-                $minOffset = $ranges[1] + 1;
-                if ($minOffset >= $fileSize) {
-                    break;
-                }
-            } elseif (is_numeric($ranges[0]) && $ranges[0] < $fileSize) {
-                // case: x-
-                $rangeArray[$ind++] = array('from' => $ranges[0], 'to' => $fileSize - 1, 'size' => $fileSize);
-                break;
-            } elseif (is_numeric($ranges[1])) {
-                // case: -x
-                if ($ranges[1] > $fileSize) {
-                    $ranges[1] = $fileSize;
-                }
-                $rangeArray[$ind++] = array(
-                    'from' => $fileSize - $ranges[1],
-                    'to'   => $fileSize - 1,
-                    'size' => $fileSize,
-                );
-                break;
-            }
-        }
-        return $rangeArray;
-    }
-
-}
-
-
-if (! function_exists('str_starts_with')) {
-    function str_starts_with(string $haystack, string $needle): bool
-    {
-        return 0 === strncmp($haystack, $needle, \strlen($needle));
     }
 }

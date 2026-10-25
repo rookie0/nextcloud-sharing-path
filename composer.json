@@ -1,15 +1,8 @@
 {
-    "name": "Sharing Path",
-    "description": "Files sharing use file store path.",
+    "name": "rookie0/nextcloud-sharing-path",
+    "description": "Nextcloud public file links by path",
     "type": "project",
-    "license": "AGPL",
-    "authors": [
-        {
-            "name": "Rookie0"
-        }
-    ],
-    "require": {},
-    "require-dev": {
-        "phpunit/phpunit": "^5.4"
-    }
+    "license": "AGPL-3.0-or-later",
+    "authors": [{"name": "Rookie0"}],
+    "require": {}
 }

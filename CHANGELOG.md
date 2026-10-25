@@ -1,3 +1,12 @@
+# 0.7.3 — Security and compatibility hardening
+
+- Restrict archives to tracked runtime files and documentation; reject symlinks and private-key material. Unify all Makefile packaging commands and remove the unrelated sharepath variant/CSR.
+- Authorize canonical paths; deny dot segments, disabled users and upload-only/restricted link shares.
+- Bound Range parsing; return 416 for unsatisfiable ranges, ignore Range on HEAD and stale If-Range, and restore a correct full response for non-seekable streams.
+- Open streams before sending success headers and stop on read failures; disable caching of revocable public URLs.
+- Fix copied links for subdirectory deployments and reserved filename characters. Remove jQuery dependency from settings and show save failures.
+- Add isolated regression tests, packaging checks and actual Nextcloud 25–34 HTTP CI.
+
 
 # Change logs
 

@@ -1,118 +1,54 @@
+# Nextcloud Sharing Path
 
-# Nextcloud Sharing Path — maintained fork
+Create public file URLs using a user's file path:
 
-> **This is a maintained fork of [rookie0/nextcloud-sharing-path](https://github.com/rookie0/nextcloud-sharing-path)
-> with compatibility fixes for Nextcloud 25 – 34, tested against Nextcloud 33.0.6 (Hub 26 Winter).**
-> Upstream has been unmaintained since 2022 and breaks with an `Internal Server Error`
-> on Nextcloud 33 (it still uses the private `OC_Response` class that was removed from the server).
-> All credit for the original app goes to [Rookie0](https://github.com/rookie0).
+`https://cloud.example/nextcloud/index.php/apps/sharingpath/alice/public/photo.jpg`
 
-Nextcloud app to enhance files sharing usage. Easy share, multi-use.
+The app ID remains **`sharingpath`**. Existing settings and URLs are retained. Compatibility and settings authorization fixes were contributed by [arundne](https://github.com/arundne). This repository remains [rookie0/nextcloud-sharing-path](https://github.com/rookie0/nextcloud-sharing-path).
 
-Share your files by path format like below:
+## Access rules
 
-`https://your-domain/nextcloud/apps/sharingpath/username/shared-file-stored-path`
+Enable Sharing Path in **Settings → Sharing**, then either:
 
-In this way, you can use your Nextcloud as CDN origin storage 🌩.
+- Create a public link for a file or a parent folder, with read permission and no password, expiration or download restriction.
+- Explicitly configure a **sharing folder**. Every file below that folder becomes public without requiring a share. This setting intentionally bypasses link-share restrictions for that folder: do not put confidential files there.
 
-⚠️ **Attention** *Potential security risk: links could be guessed and the files in shared directories can be accessed.*
+URLs are guessable. Sharing Path is unsuitable for files requiring authentication or password protection. Outside a configured sharing folder, protected, expired, hidden-download and upload-only links do not grant access. If multiple links exist on a file or an ancestor, any restricted link denies path access. Disabled users, directories and traversal paths cannot be downloaded.
 
+Global defaults can only be changed by administrators. Users can change their own settings. Responses use `Cache-Control: no-store` to prevent previously cached responses from outliving revoked access.
 
-## What this fork changes (v0.7.0)
+The **Copy sharing path** file action supports subdirectory installations and file names containing spaces, Unicode, `#`, `?` and `%`. A custom HTTP(S) copy prefix can be configured for a reverse proxy; it must route to the same application and cannot contain credentials, a query or a fragment.
 
-- Fixes the `Internal Server Error` on every download since Nextcloud 33
-  (`OC_Response` was removed from the server core)
-- Downloads are streamed through the public OCP API (`IRootFolder` / `File::fopen`)
-  instead of private server internals, so future core refactorings are far less likely
-  to break the app again; HTTP `Range` and multipart range requests keep working
-- Restores the `Copy sharing path` file action in the Vue based files app
-  (Nextcloud 28+, including the `@nextcloud/files` v4 registry used since Nextcloud 33) —
-  no build step required, plain JS
-- Replaces the removed `OC.getProtocol()` / `OC.getHost()` / `OC_User` /
-  legacy event APIs and fixes PHP 8.2+ deprecations
-- Errors are logged to `nextcloud.log` instead of producing an anonymous 500 page
+## Install and upgrade
 
-See [CHANGELOG](CHANGELOG.md) for details. Version 0.6.0 is intentionally skipped to stay
-above the version used by the (also broken on NC 33) AnotherFoxGuy fork, since Nextcloud
-refuses app downgrades.
+This branch targets Nextcloud **25–34**. Nextcloud 24 and earlier are not supported by this release. See the PR checks and validation notes below before deployment.
 
+Build from a Git checkout with Python 3:
 
-## Two app ids
+```sh
+./build.sh
+```
 
-This code base ships under two app ids, built by `./build.sh`:
+The output is `build/sharingpath-0.7.3.tar.gz`. Extract it into the Nextcloud `custom_apps` directory so the resulting path is `custom_apps/sharingpath/appinfo/info.xml`, then enable `sharingpath`. When upgrading an existing installation, replace the application files, preserve Nextcloud's database/configuration/data, and run `php occ upgrade` as the web server user.
 
-| App id | URL | Purpose |
-| --- | --- | --- |
-| `sharingpath` | `/apps/sharingpath/<user>/<path>` | The original app id. Keeps existing links working — requires the App Store entry to be transferred (see [rookie0#59](https://github.com/rookie0/nextcloud-sharing-path/issues/59)). |
-| `sharepath` | `/apps/sharepath/<user>/<path>` | An independent app id that can be published without waiting for that transfer. |
+The archive contains only tracked application files and documentation. Local keys, certificates, environment files, development tools and tests are excluded. Do not use the generated source archive from GitHub as an App Store installation package. An App Store release also needs a valid **`sharingpath`** signing certificate; `sharepath` is a different app ID. Signing keys must remain outside the checkout.
 
-They are functionally identical and can be installed side by side — the
-variant carries its own PHP namespace so the two never collide.
+No packages or certificates are automatically published by the build or CI. Application ownership on the App Store is independent of ownership of this GitHub repository.
 
+## Validation
 
-## Installation
+```sh
+php tests/unit.php
+node --test tests/script.test.cjs
+python3 tests/packaging.py
+```
 
-No build step needed — the app runs as-is.
+PHP checks cover settings authorization, bounded byte-range parsing, inaccessible streams and non-seekable full-response fallback. JavaScript checks cover action interfaces and URL encoding. Packaging checks inject dummy secret files and verify exclusions, reproducibility and symlink rejection.
 
-- Download `sharingpath-x.y.z.tar.gz` from the
-  [releases page](https://github.com/arundne/nextcloud-sharing-path/releases) and extract it
-  into your Nextcloud `apps/` (or `custom_apps/`) directory:
+The GitHub Actions workflow installs the **built archive** into disposable Nextcloud 25–34 instances and exercises HTTP GET/HEAD, byte ranges, protected shares, traversal rejection, authenticated settings and CSRF rejection. Fixtures in `tests/fixtures.php` are for disposable test instances only; never run them on a production server.
 
-  ```bash
-  tar xzf sharingpath-x.y.z.tar.gz -C /path/to/nextcloud/custom_apps/
-  ```
-
-- Or clone this repository into `apps/sharingpath`.
-
-Then enable `Sharing Path` at `Apps` > `Your apps` (or `occ app:enable sharingpath`).
-
-The upstream [Nextcloud App Store entry](https://apps.nextcloud.com/apps/sharingpath) still
-ships 0.4.4, which only supports Nextcloud ≤ 24 — use the releases from this fork instead.
-
-
-## Usage
-
-Check `Enable sharing path` at `Settings` > `Sharing` first.
-
-Then just share your files or directories (add a share link without `Hide download` or
-`Password protect` and not expired if an expiration date has been set). You can copy the
-URL via `Copy sharing path` / `Sharing-Pfad kopieren` in the file's `···` actions menu.
-
-There are some settings in `Settings` > `Sharing` (Administration & Personal) > `Sharing Path`
-you may want to take a look at.
-
-
-## Screenshots
-
-<p align="center"><img src="https://user-images.githubusercontent.com/5813232/103185230-6e066680-48f6-11eb-852a-b51002e6adba.png" alt="Nextcloud Sharing Path" width="500"></p>
-<p align="center"><img src="https://user-images.githubusercontent.com/5813232/103185234-7363b100-48f6-11eb-8c67-cb9a587bd45a.png" alt="Nextcloud Sharing Path" width="500"></p>
-
-
-## Disclaimer
-
-**AI-assisted development.** The Nextcloud 25–34 compatibility changes in this fork
-(v0.7.0 and later) were developed and tested with substantial assistance from an AI coding
-agent (Claude Code by Anthropic). Every change was verified against a real Nextcloud 33.0.6
-instance (download matrix including range requests, files UI action, settings pages), but as
-with any software: review the code yourself before deploying it to critical environments.
-
-**No warranty, no liability.** This software is provided **“as is”**, without warranty of any
-kind, express or implied. To the maximum extent permitted by applicable law, the authors and
-maintainers of this fork accept **no liability** for any damages arising from its use —
-including, without limitation, data loss or the unintended public exposure of files. Use at
-your own risk. The governing terms are sections 15 (“Disclaimer of Warranty”) and 16
-(“Limitation of Liability”) of the [AGPL license](./COPYING).
-
-**Security note.** By design, everything below a shared folder (or a configured sharing
-folder) becomes reachable by guessable public URLs without further authentication. Decide
-consciously where this app is appropriate.
-
-
-## Changelog
-
-See [CHANGELOG](CHANGELOG.md)
-
+A passing matrix covers these scenarios on the recorded Nextcloud/PHP versions. It does not certify every external storage backend, third-party app or reverse proxy configuration. Non-seekable storage is additionally exercised with an isolated stream fixture. Browser checks are recorded in the PR.
 
 ## License
 
-[AGPL](./COPYING)
+AGPL-3.0-or-later; see [COPYING](COPYING). The original project and contributor work retain their respective attribution. The software is provided without warranty.

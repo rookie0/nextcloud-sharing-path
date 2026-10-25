@@ -20,7 +20,7 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 
 ## Disclaimer
 
-This maintenance fork (v0.7.0+) was modernized with substantial assistance from an AI coding agent (Claude Code) and tested against Nextcloud 33.0.6. The software is provided **"as is"** without warranty of any kind; the authors and maintainers accept **no liability** for damages or unintended exposure of files (see AGPL sections 15 and 16). Review before use in critical environments — use at your own risk.
+Compatibility fixes were contributed by arundne. See the repository for the tested versions and validation commands. The software is provided **"as is"** without warranty of any kind; the authors and maintainers accept **no liability** for damages or unintended exposure of files (see AGPL sections 15 and 16). Review before use in critical environments — use at your own risk.
 
 
 ## Usage
@@ -31,15 +31,15 @@ Then just share your files or directories(add a share link without `Hide downloa
 
 There are some settings in `Settings` > `Sharing`(Administration & Personal) > `Sharing Path` you may need take a look.
     ]]></description>
-    <version>0.7.1</version>
+    <version>0.7.3</version>
     <licence>agpl</licence>
     <author>Rookie0</author>
-    <author homepage="https://github.com/arundne">arundne (maintenance fork)</author>
+    <author homepage="https://github.com/arundne">arundne (compatibility and security fixes)</author>
     <namespace>SharingPath</namespace>
     <category>files</category>
     <category>tools</category>
-    <website>https://github.com/arundne/nextcloud-sharing-path</website>
-    <bugs>https://github.com/arundne/nextcloud-sharing-path/issues</bugs>
+    <website>https://github.com/rookie0/nextcloud-sharing-path</website>
+    <bugs>https://github.com/rookie0/nextcloud-sharing-path/issues</bugs>
     <screenshot>
         https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png
     </screenshot>

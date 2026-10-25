@@ -1,0 +1,54 @@
+name: Validate Sharing Path
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: docker run --rm --network none --read-only -v "$PWD:/app:ro" -w /app php:8.2-cli-alpine php tests/unit.php
+      - run: node --test tests/script.test.cjs
+      - run: python3 tests/packaging.py
+  nextcloud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [25, 26, 27, 28, 29, 30, 31, 32, 33, 34]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build and install the release artifact
+        run: |
+          ./build.sh
+          mkdir build/install
+          tar -xzf build/sharingpath-*.tar.gz -C build/install
+          docker run -d --name nextcloud-test -p 127.0.0.1:8080:80 \
+            -e SQLITE_DATABASE=nextcloud -e NEXTCLOUD_ADMIN_USER=admin \
+            -e NEXTCLOUD_ADMIN_PASSWORD=LocalReviewOnly-2026 \
+            -e NEXTCLOUD_TRUSTED_DOMAINS='127.0.0.1 localhost' \
+            -v "$PWD/build/install/sharingpath:/var/www/html/custom_apps/sharingpath:ro" \
+            nextcloud:${{ matrix.version }}-apache
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8080/status.php | python3 -c 'import sys,json; assert json.load(sys.stdin)["installed"]'; then break; fi
+            sleep 2
+          done
+          docker exec -u www-data nextcloud-test php occ app:enable sharingpath
+          docker exec -u www-data nextcloud-test php occ config:system:set auth.bruteforce.protection.enabled --type boolean --value false
+          docker exec -u www-data nextcloud-test php occ config:system:set appstoreenabled --type boolean --value false
+          docker exec -i -u www-data nextcloud-test php < tests/fixtures.php
+      - name: Exercise real HTTP routes and permissions
+        run: python3 tests/integration.py http://127.0.0.1:8080
+      - name: Logs on failure
+        if: failure()
+        run: |
+          docker logs --tail 100 nextcloud-test
+          docker exec nextcloud-test tail -n 40 data/nextcloud.log

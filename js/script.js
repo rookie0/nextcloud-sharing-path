@@ -30,16 +30,16 @@
   function buildSharingPath(davPath) {
     // davPath always starts with '/'
     // NC 33 removed OC.getProtocol/OC.getHost, location.origin is equivalent
-    let prefix = window.location.origin + '/apps/sharingpath/';
+    let prefix = window.location.origin + OC.generateUrl('/apps/sharingpath') + '/';
     // admin setting
     prefix = settings.default_copy_prefix || prefix;
     prefix = prefix.endsWith('/') ? prefix : (prefix + '/');
-    prefix += currentUid();
+    prefix += encodeURIComponent(currentUid());
     // user setting
     prefix = settings.copy_prefix || prefix;
     prefix = prefix.endsWith('/') ? prefix.substring(0, prefix.length - 1) : prefix;
 
-    return encodeURI(prefix + davPath);
+    return prefix + '/' + davPath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
   }
 
   function copyToClipboard(text) {
@@ -193,6 +193,9 @@
         'Accept': 'application/json',
       },
     }).then(function(response) {
+      if (!response.ok) {
+        throw new Error('Could not load Sharing Path settings');
+      }
       return response.json();
     }).then(function(data) {
       settings = data || {};
