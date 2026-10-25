@@ -1,5 +1,55 @@
+# 0.7.3 — Security and compatibility hardening
+
+- Restrict archives to tracked runtime files and documentation; reject symlinks and private-key material. Unify all Makefile packaging commands and remove the unrelated sharepath variant/CSR.
+- Authorize canonical paths; deny dot segments, disabled users and upload-only/restricted link shares.
+- Bound Range parsing; return 416 for unsatisfiable ranges, ignore Range on HEAD and stale If-Range, and restore a correct full response for non-seekable streams.
+- Open streams before sending success headers and stop on read failures; disable caching of revocable public URLs.
+- Fix copied links for subdirectory deployments and reserved filename characters. Remove jQuery dependency from settings and show save failures.
+- Add isolated regression tests, packaging checks and actual Nextcloud 25–34 HTTP CI.
+
 
 # Change logs
+
+
+## 0.7.1 - 2026-07-29
+
+**Security fix.** Please update.
+
+- The settings endpoints decided whether to write the instance wide defaults purely
+  from a `type=admin` request parameter, which any logged-in account could send. A
+  non-admin could therefore overwrite the admin defaults — including
+  `default_sharing_folder`, which controls what is served without a share and could
+  be pointed at other accounts' folders. Admin rights are now checked against group
+  membership; a non-admin request for the defaults is rejected with `403`. Present in
+  all upstream releases; reported against the fork before the first App Store release.
+- Ship a second app id, `sharepath`, built from the same code base (see README)
+
+
+## 0.7.0 - 2026-07-28
+
+Compatibility release for Nextcloud 25 - 34, tested against Nextcloud 33.0.6 (Hub 26 Winter).
+First release of the [arundne maintenance fork](https://github.com/arundne/nextcloud-sharing-path).
+Version 0.6.0 is skipped intentionally: the AnotherFoxGuy fork already uses it, and Nextcloud
+refuses app downgrades, so this release must sort higher.
+
+- Fix `Internal Server Error` on every download since Nextcloud 33: the removed private class
+  `OC_Response` was still used for the `Content-Length` header
+- Stream files through the public OCP API (`IRootFolder` / `File::fopen`) instead of the private
+  `OC_Util::setupFS` / `OC\Files\Filesystem` / `View` internals, so future core refactorings
+  no longer break the download endpoint (range / multipart range requests still supported)
+- Catch `\Throwable` instead of `\Exception` so PHP engine errors are logged to `nextcloud.log`
+  instead of producing an anonymous 500 page
+- Add the modern security attributes (`#[PublicPage]`, `#[NoCSRFRequired]`, ...) alongside the
+  deprecated annotations
+- Restore the `Copy sharing path` file action on Nextcloud 28+ (Vue files app): register through
+  the `@nextcloud/files` v3 array registry and the v4 scoped registry (Nextcloud 33+), loaded as
+  init script; German label `Sharing-Pfad kopieren`
+- Replace removed `OC.getProtocol()` / `OC.getHost()` with `location.origin`; clipboard now uses
+  `navigator.clipboard` with a legacy fallback
+- Replace legacy `OC_User::getUser()` with `IUserSession` in the personal settings
+- Load the files integration via the typed `LoadAdditionalScriptsEvent` (the legacy string event
+  is kept for old releases)
+- Fix deprecated `${var}` string interpolation (PHP 8.2+)
 
 
 ## 0.4.4(nightly) - 2022-01-21

@@ -18,6 +18,11 @@ In this way, you can use your nextcloud as CDN origin storage 🌩.
 ⚠️ **Attention** *Potential security risk: links could be guessed and the files in shared directories can be accessed.*
 
 
+## Disclaimer
+
+Compatibility fixes were contributed by arundne. See the repository for the tested versions and validation commands. The software is provided **"as is"** without warranty of any kind; the authors and maintainers accept **no liability** for damages or unintended exposure of files (see AGPL sections 15 and 16). Review before use in critical environments — use at your own risk.
+
+
 ## Usage
 
 Check `Enable sharing path` at `Setting` > `Sharing` first.
@@ -26,9 +31,10 @@ Then just share your files or directories(add a share link without `Hide downloa
 
 There are some settings in `Settings` > `Sharing`(Administration & Personal) > `Sharing Path` you may need take a look.
     ]]></description>
-    <version>0.4.4</version>
+    <version>0.7.3</version>
     <licence>agpl</licence>
     <author>Rookie0</author>
+    <author homepage="https://github.com/arundne">arundne (compatibility and security fixes)</author>
     <namespace>SharingPath</namespace>
     <category>files</category>
     <category>tools</category>
@@ -38,7 +44,7 @@ There are some settings in `Settings` > `Sharing`(Administration & Personal) > `
         https://user-images.githubusercontent.com/5813232/61992484-bc745d80-b091-11e9-84bc-005a2a6caf14.png
     </screenshot>
     <dependencies>
-        <nextcloud min-version="20" max-version="24"/>
+        <nextcloud min-version="25" max-version="34"/>
     </dependencies>
 
     <settings>
