@@ -9,7 +9,7 @@ $shares = \OC::$server->get(\OCP\Share\IManager::class);
 foreach (['alice', 'bob'] as $uid) {
     if (!$users->get($uid)) $users->createUser($uid, 'LocalReviewOnly-2026');
     $folder = $root->getUserFolder($uid);
-    foreach (['public', 'private', 'linked', 'protected', 'hidden', 'expired', 'uploadonly'] as $dir) {
+    foreach (['public', 'private', 'linked', 'protected', 'hidden', 'expired', 'uploadonly', 'mixed', 'revoked'] as $dir) {
         if (!$folder->nodeExists($dir)) $folder->newFolder($dir);
         $path = $dir . '/file.txt';
         if (!$folder->nodeExists($path)) $folder->newFile($path, "0123456789abcdefghij\n");
@@ -25,7 +25,7 @@ $config->setAppValue('sharingpath', 'default_enabled', 'no');
 $config->setAppValue('sharingpath', 'default_copy_prefix', '');
 $config->setAppValue('sharingpath', 'default_sharing_folder', '');
 $folder = $root->getUserFolder('alice');
-foreach (['linked', 'protected', 'hidden', 'expired', 'uploadonly'] as $dir) {
+foreach (['linked', 'protected', 'hidden', 'expired', 'uploadonly', 'mixed', 'revoked'] as $dir) {
     $node = $folder->get($dir);
     $existing = $shares->getSharesBy('alice', \OCP\Share\IShare::TYPE_LINK, $node);
     if ($existing) { foreach ($existing as $old) $shares->deleteShare($old); }
@@ -34,6 +34,12 @@ foreach (['linked', 'protected', 'hidden', 'expired', 'uploadonly'] as $dir) {
     if ($dir === 'protected') $share->setPassword('FixtureSharePassword-2026');
     if ($dir === 'hidden') $share->setHideDownload(true);
     $share = $shares->createShare($share);
+    if ($dir === 'revoked') $shares->deleteShare($share);
+    if ($dir === 'mixed') {
+        $restricted = $shares->newShare()->setNode($node)->setSharedBy('alice')->setShareType(\OCP\Share\IShare::TYPE_LINK)
+            ->setPermissions(\OCP\Constants::PERMISSION_READ)->setPassword('FixtureSharePassword-2026');
+        $shares->createShare($restricted);
+    }
     if ($dir === 'expired') {
         $connection = \OC::$server->get(\OCP\IDBConnection::class);
         $qb = $connection->getQueryBuilder();
@@ -41,4 +47,9 @@ foreach (['linked', 'protected', 'hidden', 'expired', 'uploadonly'] as $dir) {
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($share->getId())))->executeStatement();
     }
 }
+$users->get('bob')->setEnabled(false);
+$node = $folder->get('linked/file.txt');
+foreach ($shares->getSharesBy('alice', \OCP\Share\IShare::TYPE_LINK, $node) as $old) $shares->deleteShare($old);
+$shares->createShare($shares->newShare()->setNode($node)->setSharedBy('alice')->setShareType(\OCP\Share\IShare::TYPE_LINK)
+    ->setPermissions(\OCP\Constants::PERMISSION_READ));
 echo json_encode(['fixtures' => 'ready', 'version' => implode('.', \OCP\Util::getVersion())]), "\n";

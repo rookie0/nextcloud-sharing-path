@@ -46,6 +46,9 @@ jobs:
           docker exec -u www-data nextcloud-test php occ config:system:set auth.bruteforce.protection.enabled --type boolean --value false
           docker exec -u www-data nextcloud-test php occ config:system:set appstoreenabled --type boolean --value false
           docker exec -i -u www-data nextcloud-test php < tests/fixtures.php
+          # CLI configuration writes cannot invalidate the web process's APCu cache.
+          docker exec nextcloud-test apache2ctl graceful
+          sleep 3
       - name: Exercise real HTTP routes and permissions
         run: python3 tests/integration.py http://127.0.0.1:8080
       - name: Logs on failure

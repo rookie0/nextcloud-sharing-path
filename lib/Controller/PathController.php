@@ -44,7 +44,8 @@ class PathController extends Controller
         $this->mimeTypeDetector = $mimeTypeDetector;
     }
 
-    /** @PublicPage
+    /**
+     * @PublicPage
      * @NoAdminRequired
      * @NoCSRFRequired
      * @NoSameSiteCookieRequired
@@ -57,7 +58,8 @@ class PathController extends Controller
         $this->fail(404);
     }
 
-    /** @PublicPage
+    /**
+     * @PublicPage
      * @NoAdminRequired
      * @NoCSRFRequired
      * @NoSameSiteCookieRequired

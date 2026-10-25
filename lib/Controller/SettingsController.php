@@ -18,7 +18,7 @@ class SettingsController extends Controller
     private $userId;
     private $groupManager;
 
-    public function __construct(IRequest $request, IConfig $config, IGroupManager $groupManager, string $userId)
+    public function __construct(IRequest $request, IConfig $config, IGroupManager $groupManager, ?string $userId)
     {
         parent::__construct(Application::APP_ID, $request);
 
@@ -45,7 +45,7 @@ class SettingsController extends Controller
 
     private function mayWriteAppDefaults(): bool
     {
-        return $this->groupManager->isAdmin($this->userId);
+        return $this->userId !== null && $this->groupManager->isAdmin($this->userId);
     }
 
     /**

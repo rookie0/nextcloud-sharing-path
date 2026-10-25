@@ -46,6 +46,8 @@ s, h, b = download()
 check('anonymous public file', s == 200 and b == DATA, [s, b[:100].decode(errors='replace')])
 check('safe content type', h.get('Content-Type', '').startswith('text/plain') and h.get('X-Content-Type-Options') == 'nosniff')
 check('revocable content is not cached', h.get('Cache-Control') == 'no-store')
+s, h, b = download(headers={'User-Agent': 'Wget/1.21'})
+check('anonymous wget download', s == 200 and b == DATA, s)
 s, h, b = download(method='HEAD', headers={'Range': 'bytes=1-2'})
 check('HEAD ignores Range and has no body', s == 200 and b == b'' and h.get('Content-Length') == str(len(DATA)), [s, dict(h)])
 for header, expected in [('bytes=1-3', DATA[1:4]), ('bytes=-4', DATA[-4:]), ('bytes=10-', DATA[10:])]:
@@ -67,22 +69,33 @@ s, h, b = download(urllib.parse.quote('public/special #?% ü.txt'))
 check('special characters in file name', s == 200 and b == b'special-content', s)
 s, h, b = download('linked/file.txt')
 check('public folder link permits descendant', s == 200 and b == DATA, s)
-for path in ['private/file.txt', 'protected/file.txt', 'hidden/file.txt', 'expired/file.txt', 'uploadonly/file.txt', 'missing.txt', 'public', 'public/../private/file.txt', 'public/%2e%2e/private/file.txt', 'public/..%5cprivate/file.txt']:
+for path in ['private/file.txt', 'protected/file.txt', 'hidden/file.txt', 'expired/file.txt', 'uploadonly/file.txt', 'mixed/file.txt', 'revoked/file.txt', 'missing.txt', 'public', 'public/../private/file.txt', 'public/%2e%2e/private/file.txt', 'public/..%5cprivate/file.txt']:
     s, h, b = download(path)
     check('deny ' + path, s == 404 and DATA not in b, s)
 s, h, b = request('/index.php/apps/sharingpath/no-such-user/public/file.txt')
 check('unknown user', s == 404)
+s, h, b = request('/index.php/apps/sharingpath/bob/public/file.txt')
+check('disabled account denied', s == 404 and DATA not in b, s)
 s, h, b = request('/index.php/apps/sharingpath/settings')
 check('anonymous settings denied', s in (401, 403), s)
 
 alice, alice_token = login('alice')
 admin, admin_token = login('admin')
+s, h, b = request('/ocs/v2.php/apps/files_sharing/api/v1/shares?path=/linked/file.txt&format=json', headers={'requesttoken': alice_token, 'OCS-APIRequest':'true'}, opener=alice)
+file_shares = json.loads(b)['ocs']['data']
+s, h, b = request('/index.php/s/' + file_shares[0]['token'] + '/download')
+check('native token-based file download', s == 200 and b == DATA, s)
 for user, session, token in [('alice', alice, alice_token), ('admin', admin, admin_token)]:
     for endpoint, key, value in [('enable','enabled','yes'), ('copyprefix','prefix','https://example.invalid/apps/sharingpath'), ('sharingfolder','folder','public')]:
         for kind in ['admin', 'personal']:
-            s, h, b = request('/index.php/apps/sharingpath/settings/' + endpoint, 'PUT', json.dumps({'type':kind,key:value}).encode(), {'Content-Type':'application/json','requesttoken':token}, session)
+            before = request('/index.php/apps/sharingpath/settings', headers={'requesttoken':token}, opener=session)[2]
+            attempt = 'private' if user == 'alice' and kind == 'admin' and key == 'folder' else value
+            s, h, b = request('/index.php/apps/sharingpath/settings/' + endpoint, 'PUT', json.dumps({'type':kind,key:attempt}).encode(), {'Content-Type':'application/json','requesttoken':token}, session)
             expected = 403 if user == 'alice' and kind == 'admin' else 200
             check(user + ' ' + kind + ' ' + endpoint, s == expected, [s,b[:200].decode(errors='replace')])
+            if expected == 403:
+                status, _, after = request('/index.php/apps/sharingpath/settings', headers={'requesttoken':token}, opener=session)
+                check('rejected admin ' + endpoint + ' leaves settings unchanged', status == 200 and json.loads(before) == json.loads(after) and download('private/file.txt')[0] == 404)
     for path in ['/index.php/settings/user/sharing'] + (['/index.php/settings/admin/sharing'] if user == 'admin' else []):
         s,h,b=request(path, opener=session)
         check(user + ' settings page ' + path, s == 200 and b'id="sharingPath"' in b, s)
@@ -92,9 +105,14 @@ check('disabled user denies public download', s == 403, s)
 request('/index.php/apps/sharingpath/settings/enable','PUT',json.dumps({'type':'personal','enabled':'yes'}).encode(),{'Content-Type':'application/json','requesttoken':alice_token},alice)
 s,h,b=request('/index.php/apps/sharingpath/settings/enable','PUT',b'{"type":"admin","enabled":"no"}',{'Content-Type':'application/json'},alice)
 check('missing CSRF token rejects mutation', s in (403,412), s)
+check('CSRF rejection leaves app enabled', json.loads(request('/index.php/apps/sharingpath/settings', headers={'requesttoken':admin_token}, opener=admin)[2]).get('default_enabled') == 'yes')
 for endpoint,key,value in [('enable','enabled','invalid'),('copyprefix','prefix','javascript:alert(1)'),('sharingfolder','folder','public/../private')]:
     s,h,b=request('/index.php/apps/sharingpath/settings/'+endpoint,'PUT',json.dumps({'type':'personal',key:value}).encode(),{'Content-Type':'application/json','requesttoken':alice_token},alice)
     check('invalid setting '+endpoint,s==400,s)
+# Leave the test instance with usable generated URLs for manual browser checks.
+for session, token, kinds in [(alice, alice_token, ['personal']), (admin, admin_token, ['admin', 'personal'])]:
+    for kind in kinds:
+        request('/index.php/apps/sharingpath/settings/copyprefix', 'PUT', json.dumps({'type':kind,'prefix':''}).encode(), {'Content-Type':'application/json','requesttoken':token}, session)
 if len(sys.argv)>2:
     with open(sys.argv[2],'w') as f: json.dump({'base':BASE,'results':RESULTS},f,indent=2)
 print(str(sum(x['pass'] for x in RESULTS)) + '/' + str(len(RESULTS)) + ' checks passed')
