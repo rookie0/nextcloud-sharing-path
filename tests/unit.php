@@ -26,7 +26,7 @@ $settings = json_decode(shell_exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg
 check($settings && $settings['passed']===12 && $settings['total']===12,'All settings authorization cases');
 foreach ([['seek','',200,'abcdefghij','text/plain'],['seek','bytes=1-2',206,'bc','text/plain'],
     ['nonseek','bytes=1-2,5-6',200,'abcdefghij','text/plain'],['nonseek','bytes=1-2',200,'abcdefghij','text/plain'],
-    ['seek','bytes=99-',416,'',null],['openfail','',404,'',null]] as [$mode,$range,$status,$body,$mime]) {
+    ['seek','bytes=99-',416,'',null],['openfail','',404,"File not found or not publicly accessible.\n",'text/plain; charset=utf-8']] as [$mode,$range,$status,$body,$mime]) {
     $command=[PHP_BINARY,__DIR__.'/download.php',$mode,$range];
     $process=proc_open($command,[1=>['pipe','w'],2=>['pipe','w']],$pipes);
     $actual=stream_get_contents($pipes[1]);$headers=json_decode(trim(stream_get_contents($pipes[2])),true);

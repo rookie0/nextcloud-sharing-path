@@ -35,12 +35,13 @@ jobs:
             -e SQLITE_DATABASE=nextcloud -e NEXTCLOUD_ADMIN_USER=admin \
             -e NEXTCLOUD_ADMIN_PASSWORD=LocalReviewOnly-2026 \
             -e NEXTCLOUD_TRUSTED_DOMAINS='127.0.0.1 localhost' \
-            -v "$PWD/build/install/sharingpath:/var/www/html/custom_apps/sharingpath:ro" \
             nextcloud:${{ matrix.version }}-apache
           for attempt in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:8080/status.php | python3 -c 'import sys,json; assert json.load(sys.stdin)["installed"]'; then break; fi
             sleep 2
           done
+          docker cp build/install/sharingpath nextcloud-test:/var/www/html/custom_apps/sharingpath
+          docker exec nextcloud-test chown -R www-data:www-data /var/www/html/custom_apps/sharingpath
           docker exec -u www-data nextcloud-test php occ app:enable sharingpath
           docker exec -u www-data nextcloud-test php occ config:system:set auth.bruteforce.protection.enabled --type boolean --value false
           docker exec -u www-data nextcloud-test php occ config:system:set appstoreenabled --type boolean --value false

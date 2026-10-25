@@ -54,8 +54,7 @@ class PathController extends Controller
     #[NoCSRFRequired]
     public function index()
     {
-        http_response_code(404);
-        exit;
+        $this->fail(404);
     }
 
     /** @PublicPage
@@ -77,8 +76,7 @@ class PathController extends Controller
             $enabled = $this->config->getAppValue(Application::APP_ID, Application::SETTINGS_KEY_DEFAULT_ENABLE);
             $personal = $this->config->getUserValue($uid, Application::APP_ID, Application::SETTINGS_KEY_ENABLE);
             if ($personal === 'no' || ($personal !== 'yes' && $enabled !== 'yes')) {
-                http_response_code(403);
-                exit;
+                $this->fail(403);
             }
 
             $folder = $this->rootFolder->getUserFolder($uid);
@@ -157,21 +155,28 @@ class PathController extends Controller
             fclose($stream);
             exit;
         } catch (NotFoundException | NotPermittedException $error) {
-            if (!headers_sent()) {
-                header_remove('Content-Length');
-                header_remove('Content-Range');
-                http_response_code(404);
-            }
+            if (is_resource($stream)) fclose($stream);
+            $this->fail(404);
         } catch (\Throwable $error) {
-            if (!headers_sent()) {
-                header_remove('Content-Length');
-                header_remove('Content-Range');
-                http_response_code(500);
-            }
+            if (is_resource($stream)) fclose($stream);
             $this->logger->error('Sharing Path download failed', ['app' => Application::APP_ID, 'exception' => $error]);
+            $this->fail(500);
         }
-        if (is_resource($stream)) {
-            fclose($stream);
+    }
+
+    private function fail(int $status): void
+    {
+        // Do not disclose whether a private file exists or append text to a partial download.
+        if (!headers_sent()) {
+            $message = $status === 404 ? "File not found or not publicly accessible.\n"
+                : ($status === 403 ? "Access denied.\n" : "Unable to read file.\n");
+            http_response_code($status);
+            header_remove('Content-Range');
+            header_remove('Accept-Ranges');
+            header('Content-Type: text/plain; charset=utf-8');
+            header('Content-Length: ' . strlen($message));
+            header('Cache-Control: no-store');
+            if ($this->request->getMethod() !== 'HEAD') echo $message;
         }
         exit;
     }
