@@ -39,7 +39,7 @@ No packages or certificates are automatically published by the build or CI. Appl
 
 ```sh
 php tests/unit.php
-node --test tests/script.test.cjs
+node --test tests/*.test.cjs
 python3 tests/packaging.py
 ```
 
@@ -75,10 +75,10 @@ Personal values override administrator defaults; an empty personal folder/prefix
 
 Image/video embedding and iframe embedding have different browser rules. Inspect the headers returned by the download URL. In particular, the Apache configuration shipped with Nextcloud uses `Header always set X-Frame-Options "SAMEORIGIN"`; an app cannot remove that server-level rule with PHP. `X-Frame-Options: ALLOW` is not a valid solution.
 
-If you intentionally allow a trusted site to frame these public files, an administrator can apply a **route-scoped** override in Apache's virtual-host configuration, substituting the actual trusted origin and installation prefix:
+If you intentionally allow a trusted site to frame these public files, use the explicit `index.php` URL (for example, `/index.php/apps/sharingpath/alice/public/file.txt`). An administrator can apply this **route-scoped** override in Apache's virtual-host configuration, substituting the actual trusted origin and installation prefix:
 
 ```apache
-<LocationMatch "^/(?:index\.php/)?apps/sharingpath/(?!settings(?:/|$))[^/]+/.+">
+<LocationMatch "^/index\.php/apps/sharingpath/(?!settings(?:/|$))[^/]+/.+">
     Header onsuccess unset X-Frame-Options
     Header always unset X-Frame-Options
     Header onsuccess unset Content-Security-Policy
@@ -86,4 +86,4 @@ If you intentionally allow a trusted site to frame these public files, an admini
 </LocationMatch>
 ```
 
-The exception must not match `/apps/sharingpath/settings`, Nextcloud login pages or the rest of Nextcloud. Keep `X-Content-Type-Options: nosniff`. A front proxy may add its own headers and needs an equivalent narrow rule. Verify both the public-file response and an authenticated settings response after reloading the web server. Do not remove frame protection globally. The sandbox intentionally does not enable scripts or same-origin access in framed documents.
+Apache's internal rewriting of shortened URLs can change which location rules apply; the explicit `index.php` route above was tested with the Nextcloud Apache image. The exception must not match `/apps/sharingpath/settings`, Nextcloud login pages or the rest of Nextcloud. Keep `X-Content-Type-Options: nosniff`. A front proxy may add its own headers and needs an equivalent narrow rule. Verify both the public-file response and an authenticated settings response after reloading the web server. Do not remove frame protection globally. The sandbox intentionally does not enable scripts or same-origin access in framed documents.

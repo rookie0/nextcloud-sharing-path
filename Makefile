@@ -5,7 +5,7 @@ build appstore source dist:
 
 test:
 	php tests/unit.php
-	node --test tests/script.test.cjs
+	node --test tests/*.test.cjs
 	python3 tests/packaging.py
 
 clean:

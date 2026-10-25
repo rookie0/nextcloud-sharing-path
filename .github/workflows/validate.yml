@@ -13,7 +13,7 @@ jobs:
         with:
           persist-credentials: false
       - run: docker run --rm --network none --read-only -v "$PWD:/app:ro" -w /app php:8.2-cli-alpine php tests/unit.php
-      - run: node --test tests/script.test.cjs
+      - run: node --test tests/*.test.cjs
       - run: python3 tests/packaging.py
   nextcloud:
     runs-on: ubuntu-latest

@@ -7,19 +7,30 @@
     const status = document.createElement('p');
     status.setAttribute('role', 'status');
     panel.appendChild(status);
-    async function save(endpoint, key, value) {
+    let pending = Promise.resolve();
+    let pendingCount = 0;
+    let saveError = '';
+    function save(endpoint, key, value) {
+      if (pendingCount === 0) saveError = '';
+      pendingCount++;
+      const body = JSON.stringify({ type: panel.querySelector('#type').value, [key]: value });
       status.textContent = 'Saving…';
-      try {
-        const response = await fetch(OC.generateUrl('/apps/sharingpath/settings/' + endpoint), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken || document.head.dataset.requesttoken || '' },
-          body: JSON.stringify({ type: panel.querySelector('#type').value, [key]: value }),
-        });
-        if (!response.ok) throw new Error('Saving failed (' + response.status + ')');
-        status.textContent = 'Saved';
-      } catch (error) {
-        status.textContent = error.message;
-      }
+      // Preserve user intent when rapid changes would otherwise race on the server.
+      pending = pending.then(async function() {
+        try {
+          const response = await fetch(OC.generateUrl('/apps/sharingpath/settings/' + endpoint), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken || document.head.dataset.requesttoken || '' },
+            body,
+          });
+          if (!response.ok) throw new Error('Saving failed (' + response.status + ')');
+        } catch (error) {
+          saveError = error.message;
+        } finally {
+          pendingCount--;
+          if (pendingCount === 0) status.textContent = saveError || 'Saved';
+        }
+      });
     }
     panel.querySelector('#enableSharingPath').addEventListener('change', function() {
       save('enable', 'enabled', this.checked ? 'yes' : 'no');
